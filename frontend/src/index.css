@@ -1,9 +1,14 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   font-family: 'Open Sans', system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+@theme {
+  --color-millennium: #BD0050;
+  --color-millennium-hover: #9E0043;
+  --color-millennium-light: #FFF0F5;
+  --font-sans: "Open Sans", system-ui, sans-serif;
 }
 
 body {
