@@ -44,10 +44,17 @@ const authMiddleware = (req, res, next) => {
 // Zabezpieczamy wszystkie pozostałe ścieżki /api
 app.use('/api', authMiddleware);
 
-const upload = multer({ dest: 'uploads/' });
+// Serwowanie plików statycznych frontendu (opcjonalne, jeśli backend ma obsługiwać wszystko)
+app.use(express.static(path.join(__dirname, '../')));
 
+// Test endpoint (publiczny)
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'milleVAT API is running', user_set: !!process.env.APP_USER });
+  res.json({ 
+    status: 'ok', 
+    message: 'milleVAT API is running', 
+    env: process.env.NODE_ENV,
+    time: new Date().toISOString()
+  });
 });
 
 app.get('/api/transactions', async (req, res) => {
