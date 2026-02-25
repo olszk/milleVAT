@@ -19,7 +19,7 @@ const authMiddleware = (req, res, next) => {
 
   // Hardcoded fallback for production if .env is missing on server
   const APP_USER = process.env.APP_USER || 'admin';
-  const APP_PASSWORD = process.env.APP_PASSWORD || 'millennium_secret_2026';
+  const APP_PASSWORD = process.env.APP_PASSWORD || 'Millennium2026';
 
   if (user === APP_USER && pass === APP_PASSWORD) {
     next();
@@ -33,7 +33,7 @@ app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   
   const APP_USER = process.env.APP_USER || 'admin';
-  const APP_PASSWORD = process.env.APP_PASSWORD || 'millennium_secret_2026';
+  const APP_PASSWORD = process.env.APP_PASSWORD || 'Millennium2026';
 
   if (username === APP_USER && password === APP_PASSWORD) {
     res.json({ success: true });
