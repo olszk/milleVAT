@@ -90,7 +90,7 @@ function App() {
     try {
       // W realnym świecie to byłoby API call, tutaj symulujemy/używamy uproszczonego mechanizmu nagłówków
       // Dla potrzeb tego zadania wysyłamy post do /api/login
-      await axios.post('http://localhost:5000/api/login', { username, password });
+      await axios.post('/api/login', { username, password });
       
       localStorage.setItem('milleVatUser', username);
       localStorage.setItem('milleVatPass', password);
@@ -113,8 +113,8 @@ function App() {
     };
     try {
       const [wssRes, transRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/wss', config),
-        axios.get('http://localhost:5000/api/transactions', config)
+        axios.get('/api/wss', config),
+        axios.get('/api/transactions', config)
       ]);
       setWssData(wssRes.data || { percentage: 0, turnover: 0, total: 0 });
       setTransactions(transRes.data || []);
