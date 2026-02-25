@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import logoM from './assets/logo-m.png';
 import { 
   Upload, 
   FileText, 
@@ -103,10 +104,8 @@ function App() {
       {/* Top Bar / Navigation */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-millennium rounded-md flex items-center justify-center">
-              <span className="text-white font-black text-lg italic">M</span>
-            </div>
+          <div className="flex items-center gap-3">
+            <img src={logoM} alt="Millennium Logo" className="h-10 w-auto object-contain" />
             <span className="text-xl font-bold tracking-tight text-gray-900">mille<span className="text-millennium">VAT</span></span>
           </div>
           <div className="flex items-center gap-6 text-sm font-medium text-gray-500">
