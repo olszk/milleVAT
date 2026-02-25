@@ -17,7 +17,11 @@ const authMiddleware = (req, res, next) => {
   const user = req.headers['x-user'];
   const pass = req.headers['x-password'];
 
-  if (user === process.env.APP_USER && pass === process.env.APP_PASSWORD) {
+  // Hardcoded fallback for production if .env is missing on server
+  const APP_USER = process.env.APP_USER || 'admin';
+  const APP_PASSWORD = process.env.APP_PASSWORD || 'millennium_secret_2026';
+
+  if (user === APP_USER && pass === APP_PASSWORD) {
     next();
   } else {
     res.status(401).json({ error: 'Unauthorized' });
@@ -27,7 +31,11 @@ const authMiddleware = (req, res, next) => {
 // Publiczny endpoint logowania
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
-  if (username === process.env.APP_USER && password === process.env.APP_PASSWORD) {
+  
+  const APP_USER = process.env.APP_USER || 'admin';
+  const APP_PASSWORD = process.env.APP_PASSWORD || 'millennium_secret_2026';
+
+  if (username === APP_USER && password === APP_PASSWORD) {
     res.json({ success: true });
   } else {
     res.status(401).json({ error: 'Invalid credentials' });
