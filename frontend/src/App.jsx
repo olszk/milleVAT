@@ -97,7 +97,11 @@ function App() {
       setIsLoggedIn(true);
       fetchData(username, password);
     } catch (err) {
-      setLoginError('Nieprawidłowy użytkownik lub hasło');
+      console.error("Login error details:", err);
+      const msg = err.response?.status === 401 
+        ? 'Nieprawidłowy użytkownik lub hasło' 
+        : `Błąd połączenia z serwerem (${err.response?.status || err.message})`;
+      setLoginError(msg);
     }
   };
 
