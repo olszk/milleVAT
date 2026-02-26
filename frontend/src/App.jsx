@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import logo from './assets/logo.png';
 
 import { 
   Upload, 
@@ -626,7 +627,7 @@ function App() {
         <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
           <div className="p-10">
             <div className="flex flex-col items-center mb-10">
-              <div className="h-16 w-16 bg-millennium rounded-2xl flex items-center justify-center text-white text-3xl font-black mb-6 shadow-lg shadow-millennium/20">M</div>
+              <img src={logo} alt="milleVAT Logo" className="h-16 w-auto mb-6 drop-shadow-sm" />
               <h2 className="text-2xl font-bold text-gray-900">Zaloguj się</h2>
               <p className="text-gray-500 text-sm mt-2 text-center">Dostęp do kalkulatora milleVAT wymaga autoryzacji.</p>
             </div>
@@ -701,7 +702,7 @@ function App() {
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-millennium rounded-xl flex items-center justify-center text-white text-xl font-black shadow-md shadow-millennium/10">M</div>
+            <img src={logo} alt="milleVAT Logo" className="h-10 w-auto" />
             <span className="text-xl font-bold tracking-tight text-gray-900">mille<span className="text-millennium">VAT</span></span>
           </div>
           <div className="flex items-center gap-6 text-sm font-medium text-gray-500">
