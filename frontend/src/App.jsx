@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import logoM from './assets/logo-m.png';
+
 import { 
   Upload, 
   FileText, 
@@ -17,7 +17,8 @@ import {
   PieChart,
   Lock,
   User,
-  LogOut
+  LogOut,
+  AlertTriangle
 } from 'lucide-react';
 
 const ReportCard = ({ title, description, icon: Icon, onUpload }) => {
@@ -29,20 +30,23 @@ const ReportCard = ({ title, description, icon: Icon, onUpload }) => {
         ${isDragging ? 'border-millennium bg-millennium-light scale-[1.02]' : 'border-gray-100 hover:border-millennium hover:shadow-md'}`}
       onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={() => setIsDragging(false)}
-      onDrop={(e) => { e.preventDefault(); setIsDragging(false); onUpload(e.target.files[0]); }}
-      onClick={() => document.getElementById(`upload-${title}`).click()}
+      onDrop={(e) => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer && e.dataTransfer.files[0]) onUpload(e.dataTransfer.files[0]); }}
+      onClick={() => {
+        const input = document.getElementById(`upload-${title}`);
+        if (input) input.click();
+      }}
     >
       <input 
         type="file" 
         id={`upload-${title}`} 
         className="hidden" 
-        onChange={(e) => onUpload(e.target.files[0])}
+        onChange={(e) => { if (e.target.files && e.target.files[0]) onUpload(e.target.files[0]); }}
       />
       <div className={`p-4 rounded-full mb-4 transition-colors duration-300 ${isDragging ? 'bg-white text-millennium' : 'bg-gray-50 text-gray-400 group-hover:bg-millennium-light group-hover:text-millennium'}`}>
-        <Icon size={32} strokeWidth={1.5} />
+        {Icon ? <Icon size={32} strokeWidth={1.5} /> : <Upload size={32} strokeWidth={1.5} />}
       </div>
-      <h3 className="font-bold text-gray-900 mb-1 text-sm tracking-wide uppercase">{title}</h3>
-      <p className="text-xs text-gray-500 line-clamp-2">{description}</p>
+      <h3 className="font-bold text-gray-900 mb-1 text-sm tracking-wide uppercase">{title || 'Raport'}</h3>
+      <p className="text-xs text-gray-500 line-clamp-2">{description || ''}</p>
       
       <div className="mt-4 flex items-center text-millennium font-semibold text-xs opacity-0 group-hover:opacity-100 transition-opacity">
         Załaduj plik <ChevronRight size={14} className="ml-1" />
@@ -55,11 +59,11 @@ const StatCard = ({ label, value, subValue, icon: Icon, colorClass }) => (
   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between">
     <div>
       <p className="text-sm font-medium text-gray-500 mb-1">{label}</p>
-      <h3 className={`text-2xl font-bold ${colorClass}`}>{value}</h3>
+      <h3 className={`text-2xl font-bold ${colorClass || 'text-gray-900'}`}>{value || '0'}</h3>
       {subValue && <p className="text-xs text-gray-400 mt-1">{subValue}</p>}
     </div>
     <div className={`p-2 rounded-lg bg-gray-50 text-gray-400`}>
-      <Icon size={20} />
+      {Icon ? <Icon size={20} /> : <BarChart3 size={20} />}
     </div>
   </div>
 );
@@ -74,8 +78,8 @@ function App() {
   const [wssData, setWssData] = useState({ percentage: 0, turnover: 0, total: 0 });
   const [vatTurnover, setVatTurnover] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Sprawdź czy użytkownik jest już zalogowany (w localStorage)
   useEffect(() => {
     const savedUser = localStorage.getItem('milleVatUser');
     const savedPass = localStorage.getItem('milleVatPass');
@@ -86,11 +90,10 @@ function App() {
   }, []);
 
   const handleLogin = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setLoginError('');
+    setError(null);
     try {
-      // W realnym świecie to byłoby API call, tutaj symulujemy/używamy uproszczonego mechanizmu nagłówków
-      // Dla potrzeb tego zadania wysyłamy post do /api/login
       await axios.post('/api/login', { username, password });
       
       localStorage.setItem('milleVatUser', username);
@@ -110,23 +113,25 @@ function App() {
     localStorage.removeItem('milleVatUser');
     localStorage.removeItem('milleVatPass');
     setIsLoggedIn(false);
+    setTransactions([]);
+    setVatTurnover([]);
+    setWssData({ percentage: 0, turnover: 0, total: 0 });
+    setError(null);
   };
 
   const fetchData = async (user, pass) => {
+    if (!user || !pass) return;
     const config = {
       headers: { 'x-user': user, 'x-password': pass }
     };
     try {
-      console.log("Pobieranie danych...");
-      // Używamy Promise.allSettled aby jeden błąd nie zatrzymał całego ładowania
+      setError(null);
       const results = await Promise.allSettled([
         axios.get('/api/wss', config),
         axios.get('/api/transactions', config),
         axios.get('/api/vat-turnover', config)
       ]);
       
-      console.log("Wyniki pobierania:", results);
-
       if (results[0].status === 'fulfilled') {
         const d = results[0].value.data || {};
         setWssData({
@@ -138,30 +143,46 @@ function App() {
 
       if (results[1].status === 'fulfilled') {
         const data = Array.isArray(results[1].value.data) ? results[1].value.data : [];
-        setTransactions(data.map(t => ({
-          ...t,
-          amount: parseFloat(t.amount) || 0
-        })));
+        setTransactions(data.map(t => {
+          if (!t) return { date: 'N/A', type: 'N/A', amount: 0, vatStatus: 'N/A', isEligible: false };
+          return {
+            ...t,
+            amount: t.amount ? parseFloat(t.amount) || 0 : 0
+          };
+        }));
       }
 
       if (results[2].status === 'fulfilled') {
         const data = Array.isArray(results[2].value.data) ? results[2].value.data : [];
-        setVatTurnover(data.map(item => ({
-          ...item,
-          ue: parseFloat(item.ue) || 0,
-          poza_ue: parseFloat(item.poza_ue) || 0,
-          total: parseFloat(item.total) || 0
-        })));
+        setVatTurnover(data.map(item => {
+          if (!item) return { type: 'N/A', ue: 0, poza_ue: 0, total: 0 };
+          return {
+            ...item,
+            ue: item.ue ? parseFloat(item.ue) || 0 : 0,
+            poza_ue: item.poza_ue ? parseFloat(item.poza_ue) || 0 : 0,
+            total: item.total ? parseFloat(item.total) || 0 : 0
+          };
+        }));
+      }
+      
+      const failed = results.filter(r => r.status === 'rejected');
+      if (failed.length > 0) {
+        console.warn("Some data could not be fetched", failed);
       }
     } catch (err) {
       console.error("General error fetching data:", err);
-      if (err.response?.status === 401) handleLogout();
+      if (err.response?.status === 401) {
+        handleLogout();
+      } else {
+        setError("Wystąpił błąd podczas pobierania danych z serwera.");
+      }
     }
   };
 
   const handleUpload = async (file, type) => {
     if (!file) return;
     setIsUploading(true);
+    setError(null);
     
     const formData = new FormData();
     formData.append('file', file);
@@ -179,8 +200,7 @@ function App() {
         }
       });
 
-      // Sukces - odśwież dane
-      alert(`Sukces! Przetworzono ${response.data.rowsProcessed} wierszy.`);
+      alert(`Sukces! Przetworzono ${response.data.rowsProcessed || 0} wierszy.`);
       fetchData(savedUser, savedPass); 
     } catch (err) {
       console.error('Upload error:', err);
@@ -196,7 +216,7 @@ function App() {
         <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
           <div className="p-10">
             <div className="flex flex-col items-center mb-10">
-              <img src={logoM} alt="Logo" className="h-16 mb-6" />
+              <div className="h-16 w-16 bg-millennium rounded-2xl flex items-center justify-center text-white text-3xl font-black mb-6 shadow-lg shadow-millennium/20">M</div>
               <h2 className="text-2xl font-bold text-gray-900">Zaloguj się</h2>
               <p className="text-gray-500 text-sm mt-2 text-center">Dostęp do kalkulatora milleVAT wymaga autoryzacji.</p>
             </div>
@@ -211,7 +231,7 @@ function App() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-millennium/10 focus:border-millennium outline-none transition-all"
-                    placeholder="Wpisz login"
+                    placeholder="admin"
                     required
                   />
                 </div>
@@ -267,7 +287,7 @@ function App() {
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={logoM} alt="Millennium Logo" className="h-10 w-auto object-contain" />
+            <div className="h-10 w-10 bg-millennium rounded-xl flex items-center justify-center text-white text-xl font-black shadow-md shadow-millennium/10">M</div>
             <span className="text-xl font-bold tracking-tight text-gray-900">mille<span className="text-millennium">VAT</span></span>
           </div>
           <div className="flex items-center gap-6 text-sm font-medium text-gray-500">
@@ -294,6 +314,13 @@ function App() {
           <p className="text-gray-500">Zarządzaj raportami i wyliczaj współczynnik struktury sprzedaży dla Banku Millennium.</p>
         </div>
 
+        {error && (
+          <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3 text-amber-800">
+            <AlertTriangle className="flex-shrink-0" />
+            <p className="text-sm font-medium">{error}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {reportTypes.map((type) => (
             <ReportCard 
@@ -312,7 +339,6 @@ function App() {
           <StatCard label="Obrót całkowity" value={`${(wssData.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PLN`} subValue="Suma wszystkich transakcji" icon={Download} colorClass="text-gray-800" />
         </div>
 
-        {/* NOWY MODUŁ: Obrót VAT wg typów i regionów */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-12">
           <div className="p-6 border-b border-gray-100 bg-gray-50/30">
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -341,22 +367,22 @@ function App() {
                   <>
                     {vatTurnover.map((item, idx) => (
                       <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-800">{item.type || 'N/A'}</td>
-                        <td className="px-6 py-4 text-sm text-right font-mono text-blue-600">{(item.ue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-4 text-sm text-right font-mono text-orange-600">{(item.poza_ue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-4 text-sm text-right font-mono font-bold bg-gray-50/30">{(item.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-gray-800">{(item && item.type) || 'N/A'}</td>
+                        <td className="px-6 py-4 text-sm text-right font-mono text-blue-600">{(item && item.ue ? item.ue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-6 py-4 text-sm text-right font-mono text-orange-600">{(item && item.poza_ue ? item.poza_ue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-6 py-4 text-sm text-right font-mono font-bold bg-gray-50/30">{(item && item.total ? item.total : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       </tr>
                     ))}
                     <tr className="bg-gray-50/80 font-bold border-t-2 border-gray-100">
                       <td className="px-6 py-4 text-sm uppercase tracking-wider">Suma całkowita</td>
                       <td className="px-6 py-4 text-sm text-right font-mono text-blue-700">
-                        {vatTurnover.reduce((sum, item) => sum + (item.ue || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {(vatTurnover || []).reduce((sum, item) => sum + (item && item.ue ? item.ue : 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-4 text-sm text-right font-mono text-orange-700">
-                        {vatTurnover.reduce((sum, item) => sum + (item.poza_ue || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {(vatTurnover || []).reduce((sum, item) => sum + (item && item.poza_ue ? item.poza_ue : 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-4 text-sm text-right font-mono text-gray-900 bg-gray-100/50">
-                        {vatTurnover.reduce((sum, item) => sum + (item.total || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {(vatTurnover || []).reduce((sum, item) => sum + (item && item.total ? item.total : 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                     </tr>
                   </>
@@ -395,18 +421,18 @@ function App() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {transactions.length === 0 ? (
+                {!transactions || transactions.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="py-20 text-center text-gray-400">Brak danych</td>
                   </tr>
                 ) : (
                   transactions.map((t, idx) => (
                     <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4 text-sm text-gray-600 font-medium">{t.date}</td>
-                      <td className="px-6 py-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] font-bold uppercase">{t.type}</span></td>
-                      <td className="px-6 py-4 text-sm text-gray-900 font-mono text-right">{t.amount.toLocaleString()}</td>
-                      <td className="px-6 py-4 text-xs text-gray-600">{t.vatStatus}</td>
-                      <td className="px-6 py-4 text-center">{t.isEligible ? <CheckCircle2 size={14} className="text-green-600 mx-auto" /> : <Clock size={14} className="text-gray-300 mx-auto" />}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600 font-medium">{(t && t.date) || 'N/A'}</td>
+                      <td className="px-6 py-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] font-bold uppercase">{(t && t.type) || 'N/A'}</span></td>
+                      <td className="px-6 py-4 text-sm text-gray-900 font-mono text-right">{(t && typeof t.amount === 'number' ? t.amount : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-xs text-gray-600">{(t && t.vatStatus) || 'N/A'}</td>
+                      <td className="px-6 py-4 text-center">{t && t.isEligible ? <CheckCircle2 size={14} className="text-green-600 mx-auto" /> : <Clock size={14} className="text-gray-300 mx-auto" />}</td>
                     </tr>
                   ))
                 )}
