@@ -155,51 +155,86 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// Endpoint do pobierania transakcji
+// Endpoint do pobierania transakcji z paginacją, sortowaniem i filtrowaniem
 app.get('/api/transactions', async (req, res) => {
   try {
-    // 1. Sprawdź czy nowa tabela istnieje
-    try {
-      const result = await db.query(`
-        SELECT 
-          id,
-          to_char(leg1_date, 'YYYY-MM-DD') as date,
-          product_type || ' ' || deal_type as type,
-          client_name as client,
-          COALESCE(report_pln_amount_leg1_ccy1, leg1_amount1, 0) as amount,
-          report_turnover_vat as vat_status,
-          CASE WHEN report_turnover_vat IS NOT NULL THEN true ELSE false END as is_eligible
-        FROM fx_transactions 
-        ORDER BY id DESC 
-        LIMIT 10000
-      `);
-      
-      const mappedRows = result.rows.map(row => ({
-        id: row.id,
-        date: row.date,
-        type: row.type || 'N/A',
-        client: row.client || 'N/A',
-        amount: parseFloat(row.amount),
-        vatStatus: row.vat_status ? `${parseFloat(row.vat_status).toFixed(2)} PLN` : 'Brak danych',
-        isEligible: row.is_eligible
-      }));
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
+    const search = req.query.search || '';
+    const sortField = req.query.sortField || 'id';
+    const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC';
 
-      return res.json(mappedRows);
-    } catch (newTableErr) {
-      console.warn('Nowa tabela fx_transactions błąd:', newTableErr.message);
+    // Lista dozwolonych pól do sortowania (bezpieczeństwo przed SQL injection)
+    const allowedSortFields = ['id', 'leg1_date', 'bo_dealno', 'client_name', 'product_type', 'report_pln_amount_leg1_ccy1', 'report_turnover_vat'];
+    const finalSortField = allowedSortFields.includes(sortField) ? sortField : 'id';
+
+    let whereClause = '';
+    let queryParams = [];
+
+    if (search) {
+      whereClause = `
+        WHERE bo_dealno ILIKE $1 
+        OR client_name ILIKE $1 
+        OR product_type ILIKE $1 
+        OR deal_type ILIKE $1
+      `;
+      queryParams.push(`%${search}%`);
     }
 
-    // 2. Fallback do starej tabeli raw_transactions
-    const oldResult = await db.query('SELECT * FROM raw_transactions ORDER BY transaction_date DESC LIMIT 50');
-    return res.json(oldResult.rows.map(row => ({
-      id: row.id,
-      date: row.transaction_date,
-      type: 'Stary format',
-      client: 'Nieznany',
-      amount: parseFloat(row.net_amount),
-      vatStatus: row.vat_code,
-      isEligible: row.is_eligible_for_wss
-    })));
+    const countResult = await db.query(`
+      SELECT COUNT(*) FROM fx_transactions ${whereClause}
+    `, queryParams);
+    
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    const result = await db.query(`
+      SELECT 
+        id,
+        to_char(leg1_date, 'YYYY-MM-DD') as date,
+        bo_dealno,
+        product_type,
+        deal_type,
+        client_name as client,
+        ccode,
+        leg1_ccy1,
+        leg1_amount1,
+        leg1_ccy2,
+        leg1_amount2,
+        leg1_rate,
+        leg2_date,
+        leg2_ccy1,
+        leg2_amount1,
+        leg2_ccy2,
+        leg2_amount2,
+        leg2_rate,
+        COALESCE(report_pln_amount_leg1_ccy1, leg1_amount1, 0) as amount_pln,
+        report_turnover_vat as vat_status,
+        CASE WHEN report_turnover_vat IS NOT NULL THEN true ELSE false END as is_eligible,
+        source_filename,
+        import_date
+      FROM fx_transactions 
+      ${whereClause}
+      ORDER BY ${finalSortField} ${sortOrder} 
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    `, [...queryParams, limit, offset]);
+    
+    const mappedRows = result.rows.map(row => ({
+      ...row,
+      amount: parseFloat(row.amount_pln),
+      type: `${row.product_type || ''} ${row.deal_type || ''}`.trim() || 'N/A',
+      vatStatus: row.vat_status ? `${parseFloat(row.vat_status).toFixed(2)} PLN` : 'Brak danych'
+    }));
+
+    res.json({
+      transactions: mappedRows,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    });
 
   } catch (err) {
     console.error('Błąd pobierania transakcji:', err);

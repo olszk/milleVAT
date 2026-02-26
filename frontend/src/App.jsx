@@ -79,6 +79,112 @@ const StatCard = ({ label, value, subValue, icon: Icon, colorClass }) => (
   </div>
 );
 
+const TransactionModal = ({ transaction, onClose }) => {
+  if (!transaction) return null;
+
+  const detailRow = (label, value, isMonospace = false) => (
+    <div className="flex justify-between py-2 border-b border-gray-50 last:border-0">
+      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</span>
+      <span className={`text-sm text-gray-900 ${isMonospace ? 'font-mono' : 'font-medium'}`}>{value || '—'}</span>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">Szczegóły transakcji</h3>
+            <p className="text-xs text-gray-500 mt-0.5">ID: {transaction.id} • Numer BO: {transaction.bo_dealno}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+            <LogOut size={20} className="rotate-180" />
+          </button>
+        </div>
+        
+        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+          <div>
+            <h4 className="text-sm font-black text-millennium uppercase tracking-[0.2em] mb-4">Podstawowe informacje</h4>
+            <div className="space-y-1">
+              {detailRow('Data', transaction.date)}
+              {detailRow('Numer BO', transaction.bo_dealno)}
+              {detailRow('Numer FO', transaction.fo_dealno)}
+              {detailRow('Kontrahent', transaction.client)}
+              {detailRow('Kraj (ISO)', transaction.ccode)}
+              {detailRow('Produkt', transaction.product_type)}
+              {detailRow('Typ', transaction.deal_type)}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-black text-millennium uppercase tracking-[0.2em] mb-4">Wartości finansowe</h4>
+            <div className="space-y-1">
+              {detailRow('Kwota 1', `${formatNumber(transaction.leg1_amount1)} ${transaction.leg1_ccy1}`, true)}
+              {detailRow('Kwota 2', `${formatNumber(transaction.leg1_amount2)} ${transaction.leg1_ccy2}`, true)}
+              {detailRow('Kurs', transaction.leg1_rate, true)}
+              <div className="my-4 h-px bg-gray-100"></div>
+              {detailRow('Wartość PLN', `${formatNumber(transaction.amount)} PLN`, true)}
+              {detailRow('Status VAT', transaction.vatStatus)}
+              <div className="flex justify-between py-2 items-center">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Kwalifikowalność</span>
+                {transaction.isEligible ? (
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">
+                    <CheckCircle2 size={12} /> TAK (WSS)
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded">
+                    <Clock size={12} /> NIE
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {transaction.leg2_date && (
+            <div className="md:col-span-2 mt-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+              <h4 className="text-xs font-black text-blue-700 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                <ArrowRightLeft size={14} /> Druga noga (Maturity)
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-[10px] font-bold text-blue-400 uppercase">Data</p>
+                  <p className="text-sm font-medium">{transaction.leg2_date}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-blue-400 uppercase">Kwota 1</p>
+                  <p className="text-sm font-mono font-medium">{formatNumber(transaction.leg2_amount1)} {transaction.leg2_ccy1}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-blue-400 uppercase">Kwota 2</p>
+                  <p className="text-sm font-mono font-medium">{formatNumber(transaction.leg2_amount2)} {transaction.leg2_ccy2}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-blue-400 uppercase">Kurs</p>
+                  <p className="text-sm font-mono font-medium">{transaction.leg2_rate}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="md:col-span-2 pt-6 border-t border-gray-100 mt-4 flex justify-between items-center text-[10px] text-gray-400 italic">
+            <span>Źródło: {transaction.source_filename}</span>
+            <span>Zaimportowano: {new Date(transaction.import_date).toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end">
+          <button 
+            onClick={onClose}
+            className="px-8 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-100 transition-all shadow-sm active:scale-[0.98]"
+          >
+            Zamknij
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
@@ -86,6 +192,12 @@ function App() {
   const [loginError, setLoginError] = useState('');
   
   const [transactions, setTransactions] = useState([]);
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 50, totalPages: 1 });
+  const [search, setSearch] = useState('');
+  const [sortField, setSortField] = useState('id');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  
   const [wssData, setWssData] = useState({ percentage: 0, turnover: 0, total: 0 });
   const [vatTurnover, setVatTurnover] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -98,7 +210,7 @@ function App() {
       setIsLoggedIn(true);
       fetchData(savedUser, savedPass);
     }
-  }, []);
+  }, [pagination.page, sortField, sortOrder]);
 
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
@@ -133,7 +245,14 @@ function App() {
   const fetchData = async (user, pass) => {
     if (!user || !pass) return;
     const config = {
-      headers: { 'x-user': user, 'x-password': pass }
+      headers: { 'x-user': user, 'x-password': pass },
+      params: {
+        page: pagination.page,
+        limit: pagination.limit,
+        search: search,
+        sortField: sortField,
+        sortOrder: sortOrder
+      }
     };
     try {
       setError(null);
@@ -153,14 +272,15 @@ function App() {
       }
 
       if (results[1].status === 'fulfilled') {
-        const data = Array.isArray(results[1].value.data) ? results[1].value.data : [];
-        setTransactions(data.map(t => {
-          if (!t) return { date: 'N/A', type: 'N/A', amount: 0, vatStatus: 'N/A', isEligible: false };
-          return {
-            ...t,
-            amount: t.amount !== undefined ? parseFloat(t.amount) || 0 : 0
-          };
-        }));
+        const data = results[1].value.data || {};
+        const txList = Array.isArray(data.transactions) ? data.transactions : [];
+        setTransactions(txList.map(t => ({
+          ...t,
+          amount: t.amount !== undefined ? parseFloat(t.amount) || 0 : 0
+        })));
+        if (data.pagination) {
+          setPagination(prev => ({ ...prev, ...data.pagination }));
+        }
       }
 
       if (results[2].status === 'fulfilled') {
@@ -188,6 +308,22 @@ function App() {
         setError("Wystąpił błąd podczas pobierania danych z serwera.");
       }
     }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setPagination(prev => ({ ...prev, page: 1 }));
+    fetchData(localStorage.getItem('milleVatUser'), localStorage.getItem('milleVatPass'));
+  };
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
   const handleUpload = async (file, type) => {
@@ -426,7 +562,7 @@ function App() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/20">
             <div>
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <Table size={22} className="text-millennium" />
@@ -435,39 +571,85 @@ function App() {
               <p className="text-sm text-gray-500 mt-1">Podgląd danych źródłowych wykorzystanych do kalkulacji.</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="relative">
+              <form onSubmit={handleSearch} className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <input type="text" placeholder="Szukaj..." className="pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-millennium/20 outline-none w-64 transition-all" />
-              </div>
+                <input 
+                  type="text" 
+                  placeholder="Szukaj (BO, kontrahent, produkt)..." 
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-millennium/20 focus:border-millennium outline-none w-72 transition-all shadow-sm" 
+                />
+              </form>
             </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#FDFDFD] text-gray-400 text-[11px] uppercase tracking-[0.1em] font-bold">
-                  <th className="px-6 py-4 border-b border-gray-100">Data</th>
-                  <th className="px-6 py-4 border-b border-gray-100">Instrument</th>
-                  <th className="px-6 py-4 border-b border-gray-100 text-right">Kwota (PLN)</th>
-                  <th className="px-6 py-4 border-b border-gray-100">Status VAT</th>
-                  <th className="px-6 py-4 border-b border-gray-100 text-center">WSS</th>
+                <tr className="bg-gray-50/50 text-gray-400 text-[10px] uppercase tracking-wider font-black border-b border-gray-100">
+                  <th onClick={() => handleSort('leg1_date')} className="px-6 py-4 cursor-pointer hover:text-millennium transition-colors">
+                    Data {sortField === 'leg1_date' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th onClick={() => handleSort('bo_dealno')} className="px-6 py-4 cursor-pointer hover:text-millennium transition-colors">
+                    Numer BO {sortField === 'bo_dealno' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th onClick={() => handleSort('client_name')} className="px-6 py-4 cursor-pointer hover:text-millennium transition-colors">
+                    Kontrahent {sortField === 'client_name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th onClick={() => handleSort('product_type')} className="px-6 py-4 cursor-pointer hover:text-millennium transition-colors">
+                    Typ {sortField === 'product_type' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th onClick={() => handleSort('report_pln_amount_leg1_ccy1')} className="px-6 py-4 text-right cursor-pointer hover:text-millennium transition-colors">
+                    Kwota (PLN) {sortField === 'report_pln_amount_leg1_ccy1' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th className="px-6 py-4 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {!transactions || transactions.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="py-20 text-center text-gray-400">Brak danych</td>
+                    <td colSpan="6" className="py-24 text-center">
+                      <div className="flex flex-col items-center gap-3 text-gray-400">
+                        <Table size={48} strokeWidth={1} />
+                        <p className="font-medium italic">Brak danych dopasowanych do filtrów</p>
+                      </div>
+                    </td>
                   </tr>
                 ) : (
                   transactions.map((t, idx) => {
                     if (!t) return null;
                     return (
-                      <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                      <tr 
+                        key={t.id || idx} 
+                        className="hover:bg-millennium-light/20 transition-all cursor-pointer group"
+                        onClick={() => setSelectedTransaction(t)}
+                      >
                         <td className="px-6 py-4 text-sm text-gray-600 font-medium">{t.date || 'N/A'}</td>
-                        <td className="px-6 py-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] font-bold uppercase">{t.type || 'N/A'}</span></td>
-                        <td className="px-6 py-4 text-sm text-gray-900 font-mono text-right">{formatNumber(t.amount, { minimumFractionDigits: 0 })}</td>
-                        <td className="px-6 py-4 text-xs text-gray-600">{t.vatStatus || 'N/A'}</td>
-                        <td className="px-6 py-4 text-center">{t.isEligible ? <CheckCircle2 size={14} className="text-green-600 mx-auto" /> : <Clock size={14} className="text-gray-300 mx-auto" />}</td>
+                        <td className="px-6 py-4 text-sm font-mono text-gray-400 group-hover:text-gray-900 transition-colors">{t.bo_dealno || 'N/A'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-900 font-bold line-clamp-1 max-w-[200px]">{t.client || 'N/A'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tight
+                            ${t.product_type === 'FxSwap' ? 'bg-indigo-50 text-indigo-700' : 'bg-blue-50 text-blue-700'}`}>
+                            {t.type || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 font-mono font-bold text-right tabular-nums">
+                          {formatNumber(t.amount, { minimumFractionDigits: 0 })}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex justify-center">
+                            {t.isEligible ? (
+                              <div className="flex items-center gap-1.5 text-green-600 bg-green-50 px-2 py-1 rounded-lg text-[10px] font-bold" title="Kwalifikuje się do WSS">
+                                <CheckCircle2 size={12} /> WSS
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-gray-400 bg-gray-50 px-2 py-1 rounded-lg text-[10px] font-bold">
+                                <Clock size={12} /> BRAK
+                              </div>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })
@@ -475,8 +657,39 @@ function App() {
               </tbody>
             </table>
           </div>
+
+          {/* Paginacja */}
+          <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
+            <div className="text-xs text-gray-500 font-medium">
+              Pokazano <span className="text-gray-900 font-bold">{transactions.length}</span> z <span className="text-gray-900 font-bold">{pagination.total}</span> transakcji
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                disabled={pagination.page === 1}
+                className="px-4 py-2 text-xs font-bold border border-gray-200 rounded-xl bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:hover:bg-white transition-all shadow-sm"
+              >
+                Poprzednia
+              </button>
+              <div className="flex items-center gap-1 px-4 text-xs font-bold text-gray-400">
+                Strona <span className="text-millennium font-black mx-1">{pagination.page}</span> z {pagination.totalPages}
+              </div>
+              <button 
+                onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.totalPages, prev.page + 1) }))}
+                disabled={pagination.page === pagination.totalPages}
+                className="px-4 py-2 text-xs font-bold border border-gray-200 rounded-xl bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:hover:bg-white transition-all shadow-sm"
+              >
+                Następna
+              </button>
+            </div>
+          </div>
         </div>
       </main>
+
+      <TransactionModal 
+        transaction={selectedTransaction} 
+        onClose={() => setSelectedTransaction(null)} 
+      />
 
       {isUploading && (
         <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-[100] flex flex-col items-center justify-center transition-all">
