@@ -100,43 +100,33 @@ async function importFxFile(filePath, originalFilename) {
     return { success: false, count: 0 };
   }
   
-  const headers = rawMatrix[headerRowIndex].map((cell, idx) => {
-      const val = cell ? String(cell).trim() : `UNKNOWN_${idx}`;
-      return val;
-  });
+  // const headers = rawMatrix[headerRowIndex].map((cell, idx) => {
+  //    const val = cell ? String(cell).trim() : `UNKNOWN_${idx}`;
+  //    return val;
+  // });
   
-  console.log(`Używam nagłówków z wiersza ${headerRowIndex}:`, headers.slice(0, 5), '...');
+  // console.log(`Używam nagłówków z wiersza ${headerRowIndex}:`, headers.slice(0, 5), '...');
 
-  // 2. Wczytujemy dane od wiersza następnego (headerRowIndex + 1)
-  // Przekazujemy 'header: headers', aby wymusić użycie tych nazw jako kluczy dla danych
-  // sheet_to_json nie przyjmuje tablicy w header, tylko liczbę lub 'A'.
-  // Musimy sami przemapować nazwy jeśli chcemy być "pancerni".
+  // ZMIANA PODEJŚCIA (OSTATECZNA):
+  // Mamy już wczytane całe dane w rawMatrix (z header: 1).
+  // Nie ma sensu wołać sheet_to_json drugi raz, bo to może powodować błędy z 'range'.
+  // Po prostu bierzemy dane z rawMatrix.
   
-  // ZMIANA PODEJŚCIA:
-  // sheet_to_json z 'header: 1' i range od nagłówka daje nam tablicę tablic.
-  // Pierwszy wiersz to nagłówek. Reszta to dane.
-  // Sami mapujemy to na obiekty.
-  
-  const rawDataArray = xlsx.utils.sheet_to_json(sheet, { 
-      header: 1,
-      range: headerRowIndex 
-  });
-  
-  if (!rawDataArray || rawDataArray.length === 0) {
-      console.log('Brak danych w arkuszu');
+  if (!rawMatrix || rawMatrix.length <= headerRowIndex) {
+      console.error('Błąd: rawMatrix jest pusty lub headerRowIndex poza zakresem');
       return { success: false, count: 0 };
   }
-  
-  // Pierwszy element to nagłówek (zmieniamy na UPPERCASE)
-  const rawHeader = rawDataArray[0] || [];
+
+  // 1. Nagłówki
+  const rawHeader = rawMatrix[headerRowIndex] || [];
   const headerCells = rawHeader.map(c => String(c || '').trim().toUpperCase());
   
-  console.log(`DEBUG: headerRowIndex=${headerRowIndex}`);
-  console.log('DEBUG: rawHeader (pierwsze 10):', rawHeader.slice(0, 10));
-  console.log('DEBUG: headerCells (znormalizowane):', headerCells.slice(0, 10));
+  console.log(`DEBUG: Używam rawMatrix. headerRowIndex=${headerRowIndex}`);
+  console.log('DEBUG: Nagłówki:', headerCells.slice(0, 10)); // Pokaż pierwsze 10
   
-  // Reszta to dane
-  const dataRows = rawDataArray.slice(1);
+  // 2. Dane (wszystko poniżej nagłówka)
+  const dataRows = rawMatrix.slice(headerRowIndex + 1);
+  
   console.log(`DEBUG: Liczba wierszy danych: ${dataRows.length}`);
   if (dataRows.length > 0) {
       console.log('DEBUG: Pierwszy wiersz danych (raw):', JSON.stringify(dataRows[0]));
@@ -146,6 +136,7 @@ async function importFxFile(filePath, originalFilename) {
   const rawData = dataRows.map(row => {
       const obj = {};
       headerCells.forEach((key, idx) => {
+          // Ignoruj puste klucze nagłówkowe oraz te zaczynające się od __EMPTY
           if (key && key !== 'UNDEFINED' && key !== 'NULL' && !key.startsWith('__EMPTY')) {
              const val = row[idx];
              if (val !== undefined) {
