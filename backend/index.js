@@ -214,6 +214,28 @@ app.get('/api/transactions', async (req, res) => {
         leg2_ccy2,
         leg2_amount2,
         leg2_rate,
+        
+        -- Report Data
+        report_nbp_rate_leg1_ccy1,
+        report_nbp_rate_leg1_ccy2,
+        report_nbp_rate_leg2_ccy1,
+        report_nbp_rate_leg2_ccy2,
+        report_pln_amount_leg1_ccy1,
+        report_pln_amount_leg1_ccy2,
+        report_pln_amount_leg2_ccy1,
+        report_pln_amount_leg2_ccy2,
+        report_turnover_vat,
+
+        -- Audit Data
+        audit_nbp_rate_leg1_ccy1,
+        audit_nbp_rate_leg1_ccy2,
+        audit_nbp_rate_leg2_ccy1,
+        audit_nbp_rate_leg2_ccy2,
+        audit_pln_amount_leg1_ccy1,
+        audit_pln_amount_leg1_ccy2,
+        audit_pln_amount_leg2_ccy1,
+        audit_pln_amount_leg2_ccy2,
+        
         COALESCE(report_pln_amount_leg1_ccy1, leg1_amount1, 0) as amount_pln,
         report_turnover_vat as vat_status,
         audit_turnover_vat,

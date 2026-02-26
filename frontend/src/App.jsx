@@ -32,6 +32,16 @@ const formatNumber = (val, options = {}) => {
   });
 };
 
+const formatDate = (val) => {
+  if (!val) return '—';
+  // Use YYYY-MM-DD format
+  try {
+    return new Date(val).toISOString().split('T')[0];
+  } catch (e) {
+    return val;
+  }
+};
+
 const ReportCard = ({ title, description, icon: Icon, onUpload }) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -84,22 +94,22 @@ const TransactionModal = ({ transaction, onClose }) => {
 
   const isSwap = transaction.product_type === 'FxSwap';
 
-  const detailRow = (label, value, isMonospace = false) => (
+  const detailRow = (label, value, isMonospace = false, valueColor = 'text-gray-900') => (
     <div className="flex justify-between py-2 border-b border-gray-50 last:border-0">
       <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</span>
-      <span className={`text-sm text-gray-900 ${isMonospace ? 'font-mono' : 'font-medium'}`}>{value || '—'}</span>
+      <span className={`text-sm ${valueColor} ${isMonospace ? 'font-mono' : 'font-medium'}`}>{value || '—'}</span>
     </div>
   );
 
   const LegSection = ({ title, date, ccy1, amt1, ccy2, amt2, rate, icon: Icon, colorClass }) => (
-    <div className={`p-5 rounded-2xl border ${colorClass} bg-white shadow-sm transition-all hover:shadow-md`}>
+    <div className={`p-5 rounded-2xl border ${colorClass} bg-white shadow-sm transition-all hover:shadow-md h-full`}>
       <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 opacity-70">
         {Icon && <Icon size={14} />} {title}
       </h4>
       <div className="space-y-3">
         <div className="flex justify-between items-end">
           <span className="text-[10px] font-bold text-gray-400 uppercase">Data rozliczenia</span>
-          <span className="text-sm font-bold text-gray-900">{date || '—'}</span>
+          <span className="text-sm font-bold text-gray-900">{formatDate(date)}</span>
         </div>
         <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-50">
           <div>
@@ -119,24 +129,74 @@ const TransactionModal = ({ transaction, onClose }) => {
     </div>
   );
 
+  const DataSection = ({ title, rates, amounts, turnover, isAudit }) => (
+    <div className={`p-5 rounded-2xl border ${isAudit ? 'border-orange-100 bg-orange-50/10' : 'border-blue-100 bg-blue-50/10'}`}>
+        <h4 className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 ${isAudit ? 'text-orange-600' : 'text-blue-600'}`}>
+            {isAudit ? <Lock size={14} /> : <FileText size={14} />} {title}
+        </h4>
+        
+        <div className="space-y-4">
+            <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Wynik na transakcji (VAT Turnover)</span>
+                <span className={`text-lg font-mono font-bold ${isAudit ? 'text-orange-700' : 'text-blue-700'}`}>
+                    {formatNumber(turnover)} PLN
+                </span>
+            </div>
+
+            <div className="pt-2 border-t border-gray-100/50">
+                <span className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Kursy Walut (4)</span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex justify-between"><span>L1 {transaction.leg1_ccy1}:</span> <span className="font-mono">{formatNumber(rates.l1c1, {minimumFractionDigits: 4})}</span></div>
+                    <div className="flex justify-between"><span>L1 {transaction.leg1_ccy2}:</span> <span className="font-mono">{formatNumber(rates.l1c2, {minimumFractionDigits: 4})}</span></div>
+                    {isSwap && (
+                        <>
+                            <div className="flex justify-between"><span>L2 {transaction.leg2_ccy1}:</span> <span className="font-mono">{formatNumber(rates.l2c1, {minimumFractionDigits: 4})}</span></div>
+                            <div className="flex justify-between"><span>L2 {transaction.leg2_ccy2}:</span> <span className="font-mono">{formatNumber(rates.l2c2, {minimumFractionDigits: 4})}</span></div>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <div className="pt-2 border-t border-gray-100/50">
+                <span className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Wartości Przepływów (4)</span>
+                <div className="grid grid-cols-1 gap-1 text-xs">
+                    <div className="flex justify-between"><span>L1 {transaction.leg1_ccy1}:</span> <span className="font-mono">{formatNumber(amounts.l1c1)} PLN</span></div>
+                    <div className="flex justify-between"><span>L1 {transaction.leg1_ccy2}:</span> <span className="font-mono">{formatNumber(amounts.l1c2)} PLN</span></div>
+                    {isSwap && (
+                        <>
+                            <div className="flex justify-between"><span>L2 {transaction.leg2_ccy1}:</span> <span className="font-mono">{formatNumber(amounts.l2c1)} PLN</span></div>
+                            <div className="flex justify-between"><span>L2 {transaction.leg2_ccy2}:</span> <span className="font-mono">{formatNumber(amounts.l2c2)} PLN</span></div>
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-      <div className="bg-gray-50 rounded-[2.5rem] shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-300 border border-white/20">
+      <div className="bg-gray-50 rounded-[2.5rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in fade-in zoom-in duration-300 border border-white/20 max-h-[95vh] overflow-y-auto">
         {/* Header Section */}
-        <div className="p-8 bg-white border-b border-gray-100 flex items-start justify-between">
+        <div className="p-8 bg-white border-b border-gray-100 flex items-start justify-between sticky top-0 z-10">
           <div className="flex gap-6">
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-lg ${isSwap ? 'bg-indigo-600 shadow-indigo-200' : 'bg-blue-600 shadow-blue-200'}`}>
               <ArrowRightLeft size={32} />
             </div>
             <div>
-              <div className="flex items-center gap-3 mb-1">
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-black uppercase tracking-widest">
-                  {transaction.product_type}
-                </span>
-                <span className="text-gray-300">•</span>
-                <span className="text-sm font-bold text-gray-900">{transaction.bo_dealno}</span>
+              <div className="flex flex-col gap-1 mb-1">
+                 <div className="flex items-center gap-3">
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-black uppercase tracking-widest">
+                    {transaction.product_type}
+                    </span>
+                 </div>
+                 <div className="flex items-center gap-4 text-xs font-mono text-gray-500 mt-1">
+                    <span title="BO Deal No">BO: <span className="font-bold text-gray-900">{transaction.bo_dealno}</span></span>
+                    <span className="text-gray-300">|</span>
+                    <span title="FO Deal No">FO: <span className="font-bold text-gray-900">{transaction.fo_dealno || '—'}</span></span>
+                 </div>
               </div>
-              <h3 className="text-2xl font-black text-gray-900 leading-tight">{transaction.client}</h3>
+              <h3 className="text-2xl font-black text-gray-900 leading-tight mt-2">{transaction.client}</h3>
               <p className="text-sm text-gray-500 font-medium">Instrument: <span className="text-gray-900">{transaction.type}</span> • Kraj: <span className="text-gray-900">{transaction.ccode}</span></p>
             </div>
           </div>
@@ -146,8 +206,9 @@ const TransactionModal = ({ transaction, onClose }) => {
         </div>
 
         {/* Content Section */}
-        <div className="p-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        <div className="p-8 space-y-8">
+          {/* Legs Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <LegSection 
               title={isSwap ? "Noga Początkowa (Near Leg)" : "Rozliczenie Transakcji"}
               date={transaction.leg1_date}
@@ -173,7 +234,7 @@ const TransactionModal = ({ transaction, onClose }) => {
                 colorClass="border-indigo-100"
               />
             ) : (
-              <div className="bg-white p-6 rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center text-center opacity-50">
+              <div className="bg-white p-6 rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center text-center opacity-50 h-full">
                 <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 mb-3">
                   <ArrowRightLeft size={24} />
                 </div>
@@ -183,44 +244,67 @@ const TransactionModal = ({ transaction, onClose }) => {
             )}
           </div>
 
-          {/* Financials & VAT Section */}
-          <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
-            <div className="flex flex-col md:flex-row justify-between gap-8">
-              <div className="flex-1 space-y-4">
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Parametry Podatkowe</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-2">
-                  {detailRow('Wartość w PLN', `${formatNumber(transaction.amount)} PLN`, true)}
-                  {detailRow('Status VAT', transaction.vatStatus)}
-                  {transaction.audit_turnover_vat !== undefined && transaction.audit_turnover_vat !== null && (
-                    <>
-                      {detailRow('Audyt VAT', `${formatNumber(transaction.audit_turnover_vat)} PLN`, true)}
-                      <div className="flex justify-between py-2 border-b border-gray-50 last:border-0">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Wynik Audytu</span>
-                        <span className={`text-sm font-bold ${transaction.is_audit_ok ? 'text-green-600' : 'text-red-600'}`}>
-                          {transaction.is_audit_ok ? 'ZGODNY' : `RÓŻNICA: ${formatNumber(transaction.diff_turnover_vat)}`}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                  {detailRow('Nr FO', transaction.fo_dealno)}
-                  <div className="flex justify-between py-2 items-center">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Kwalifikowalność</span>
-                    {transaction.isEligible ? (
-                      <span className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-full">
-                        <CheckCircle2 size={12} /> KWALIFIKUJE SIĘ DO WSS
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-xs font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full">
-                        <Clock size={12} /> NIE KWALIFIKUJE SIĘ
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* Detailed Report & Audit Data */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <DataSection 
+                title="Dane z Raportu (Source)"
+                turnover={transaction.report_turnover_vat || transaction.vat_status} // Using report_turnover_vat directly if available
+                rates={{
+                    l1c1: transaction.report_nbp_rate_leg1_ccy1,
+                    l1c2: transaction.report_nbp_rate_leg1_ccy2,
+                    l2c1: transaction.report_nbp_rate_leg2_ccy1,
+                    l2c2: transaction.report_nbp_rate_leg2_ccy2
+                }}
+                amounts={{
+                    l1c1: transaction.report_pln_amount_leg1_ccy1,
+                    l1c2: transaction.report_pln_amount_leg1_ccy2,
+                    l2c1: transaction.report_pln_amount_leg2_ccy1,
+                    l2c2: transaction.report_pln_amount_leg2_ccy2
+                }}
+                isAudit={false}
+             />
+
+             <div className="flex flex-col gap-4">
+                 <DataSection 
+                    title="Dane Audytowe (System)"
+                    turnover={transaction.audit_turnover_vat}
+                    rates={{
+                        l1c1: transaction.audit_nbp_rate_leg1_ccy1,
+                        l1c2: transaction.audit_nbp_rate_leg1_ccy2,
+                        l2c1: transaction.audit_nbp_rate_leg2_ccy1,
+                        l2c2: transaction.audit_nbp_rate_leg2_ccy2
+                    }}
+                    amounts={{
+                        l1c1: transaction.audit_pln_amount_leg1_ccy1,
+                        l1c2: transaction.audit_pln_amount_leg1_ccy2,
+                        l2c1: transaction.audit_pln_amount_leg2_ccy1,
+                        l2c2: transaction.audit_pln_amount_leg2_ccy2
+                    }}
+                    isAudit={true}
+                 />
+                 
+                 {/* Difference Summary */}
+                 {transaction.audit_turnover_vat !== undefined && transaction.audit_turnover_vat !== null && (
+                    <div className={`p-4 rounded-xl border ${transaction.is_audit_ok ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">Różnica (Audyt - Raport)</span>
+                            <span className={`text-sm font-bold ${transaction.is_audit_ok ? 'text-green-600' : 'text-red-600'}`}>
+                                {transaction.is_audit_ok ? 'ZGODNOŚĆ' : 'ROZBIEŻNOŚĆ'}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-end">
+                             <span className="text-xs text-gray-400">Różnica Turnover VAT</span>
+                             <span className={`text-xl font-mono font-bold ${transaction.is_audit_ok ? 'text-green-700' : 'text-red-700'}`}>
+                                {formatNumber(transaction.diff_turnover_vat)} PLN
+                             </span>
+                        </div>
+                    </div>
+                 )}
+             </div>
           </div>
 
-          <div className="mt-8 flex justify-between items-center text-[10px] text-gray-400 font-medium px-2">
+          {/* Additional Info Footer */}
+          <div className="mt-8 flex justify-between items-center text-[10px] text-gray-400 font-medium px-2 pt-4 border-t border-gray-100">
             <div className="flex gap-4">
               <span>Plik źródłowy: <span className="text-gray-600">{transaction.source_filename}</span></span>
               <span>•</span>
