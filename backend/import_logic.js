@@ -48,17 +48,24 @@ async function importFxFile(filePath, originalFilename) {
   let sheet = workbook.Sheets['Data'];
   if (!sheet) sheet = workbook.Sheets[workbook.SheetNames[0]];
   
-  // Znajdź nagłówek (row 1 dla SWAP, row 2 dla FORWARD w przykładowych plikach?)
-  // Używamy bezpiecznego podejścia: szukamy wiersza z kluczowymi kolumnami
-  const range = xlsx.utils.decode_range(sheet['!ref']);
+  // Inteligentne wykrywanie wiersza nagłówkowego
+  // Szukamy wiersza, który zawiera kluczowe kolumny (np. DEALNO, PRODUCT)
+  // Pobieramy surowe dane (array of arrays) aby znaleźć nagłówek
+  const rawMatrix = xlsx.utils.sheet_to_json(sheet, { header: 1 });
   
-  // Konwersja do JSON z nagłówkami
-  // Dla uproszczenia, zakładamy, że nagłówki są w 1. wierszu dla SWAP i 2. dla FORWARD
-  // (w produkcji trzeba to zrobić bardziej dynamicznie)
-  let headerRow = 0;
-  if (type === 'FORWARD') headerRow = 1; // Bo wiersz 0 to pusty/tytuł
+  let headerRowIndex = 0;
+  for (let i = 0; i < Math.min(rawMatrix.length, 20); i++) {
+    const rowStr = JSON.stringify(rawMatrix[i] || []).toUpperCase();
+    // Szukamy słów kluczowych w wierszu
+    if ((rowStr.includes('DEALNO') || rowStr.includes('K_DEALNO')) && rowStr.includes('PRODUCT')) {
+      headerRowIndex = i;
+      console.log(`Znaleziono nagłówek w wierszu: ${i + 1}`);
+      break;
+    }
+  }
   
-  const rawData = xlsx.utils.sheet_to_json(sheet, { range: headerRow });
+  // Wczytujemy dane ponownie, zaczynając od wykrytego wiersza nagłówka
+  const rawData = xlsx.utils.sheet_to_json(sheet, { range: headerRowIndex });
   
   const client = await db.pool.connect();
   
