@@ -117,6 +117,7 @@ function App() {
       headers: { 'x-user': user, 'x-password': pass }
     };
     try {
+      console.log("Pobieranie danych...");
       // Używamy Promise.allSettled aby jeden błąd nie zatrzymał całego ładowania
       const results = await Promise.allSettled([
         axios.get('/api/wss', config),
@@ -124,27 +125,33 @@ function App() {
         axios.get('/api/vat-turnover', config)
       ]);
       
+      console.log("Wyniki pobierania:", results);
+
       if (results[0].status === 'fulfilled') {
         const d = results[0].value.data || {};
         setWssData({
-          percentage: d.wss_percentage || 0,
-          turnover: d.turnover_with_deduction || 0,
-          total: d.total_turnover || 0
+          percentage: parseFloat(d.wss_percentage) || 0,
+          turnover: parseFloat(d.turnover_with_deduction) || 0,
+          total: parseFloat(d.total_turnover) || 0
         });
-      } else {
-        console.warn("Błąd ładowania WSS:", results[0].reason);
       }
 
       if (results[1].status === 'fulfilled') {
-        setTransactions(results[1].value.data || []);
-      } else {
-        console.error("Błąd ładowania transakcji:", results[1].reason);
+        const data = Array.isArray(results[1].value.data) ? results[1].value.data : [];
+        setTransactions(data.map(t => ({
+          ...t,
+          amount: parseFloat(t.amount) || 0
+        })));
       }
 
       if (results[2].status === 'fulfilled') {
-        setVatTurnover(results[2].value.data || []);
-      } else {
-        console.error("Błąd ładowania obrotu VAT:", results[2].reason);
+        const data = Array.isArray(results[2].value.data) ? results[2].value.data : [];
+        setVatTurnover(data.map(item => ({
+          ...item,
+          ue: parseFloat(item.ue) || 0,
+          poza_ue: parseFloat(item.poza_ue) || 0,
+          total: parseFloat(item.total) || 0
+        })));
       }
     } catch (err) {
       console.error("General error fetching data:", err);
@@ -300,9 +307,9 @@ function App() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <StatCard label="Współczynnik WSS" value={`${wssData.percentage}%`} subValue="Kalkulacja za bieżący okres" icon={BarChart3} colorClass="text-millennium" />
-          <StatCard label="Obrót opodatkowany" value={`${wssData.turnover.toLocaleString()} PLN`} subValue="Podstawa do odliczenia" icon={CheckCircle2} colorClass="text-green-600" />
-          <StatCard label="Obrót całkowity" value={`${wssData.total.toLocaleString()} PLN`} subValue="Suma wszystkich transakcji" icon={Download} colorClass="text-gray-800" />
+          <StatCard label="Współczynnik WSS" value={`${(wssData.percentage || 0).toFixed(2)}%`} subValue="Kalkulacja za bieżący okres" icon={BarChart3} colorClass="text-millennium" />
+          <StatCard label="Obrót opodatkowany" value={`${(wssData.turnover || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PLN`} subValue="Podstawa do odliczenia" icon={CheckCircle2} colorClass="text-green-600" />
+          <StatCard label="Obrót całkowity" value={`${(wssData.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PLN`} subValue="Suma wszystkich transakcji" icon={Download} colorClass="text-gray-800" />
         </div>
 
         {/* NOWY MODUŁ: Obrót VAT wg typów i regionów */}
@@ -326,7 +333,7 @@ function App() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {vatTurnover.length === 0 ? (
+                {!vatTurnover || vatTurnover.length === 0 ? (
                   <tr>
                     <td colSpan="4" className="py-12 text-center text-gray-400 italic">Brak danych do zestawienia obrotu</td>
                   </tr>
@@ -334,22 +341,22 @@ function App() {
                   <>
                     {vatTurnover.map((item, idx) => (
                       <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-800">{item.type}</td>
-                        <td className="px-6 py-4 text-sm text-right font-mono text-blue-600">{item.ue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-4 text-sm text-right font-mono text-orange-600">{item.poza_ue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-4 text-sm text-right font-mono font-bold bg-gray-50/30">{item.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-gray-800">{item.type || 'N/A'}</td>
+                        <td className="px-6 py-4 text-sm text-right font-mono text-blue-600">{(item.ue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-6 py-4 text-sm text-right font-mono text-orange-600">{(item.poza_ue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-6 py-4 text-sm text-right font-mono font-bold bg-gray-50/30">{(item.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       </tr>
                     ))}
                     <tr className="bg-gray-50/80 font-bold border-t-2 border-gray-100">
                       <td className="px-6 py-4 text-sm uppercase tracking-wider">Suma całkowita</td>
                       <td className="px-6 py-4 text-sm text-right font-mono text-blue-700">
-                        {vatTurnover.reduce((sum, item) => sum + item.ue, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {vatTurnover.reduce((sum, item) => sum + (item.ue || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-4 text-sm text-right font-mono text-orange-700">
-                        {vatTurnover.reduce((sum, item) => sum + item.poza_ue, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {vatTurnover.reduce((sum, item) => sum + (item.poza_ue || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-4 text-sm text-right font-mono text-gray-900 bg-gray-100/50">
-                        {vatTurnover.reduce((sum, item) => sum + item.total, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {vatTurnover.reduce((sum, item) => sum + (item.total || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                     </tr>
                   </>

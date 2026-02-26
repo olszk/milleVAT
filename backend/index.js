@@ -82,15 +82,17 @@ app.get('/api/vat-turnover', async (req, res) => {
 
     // Agregacja danych dla widoku frontendu
     const aggregated = result.rows.reduce((acc, row) => {
-      const type = row.type.trim() === '' ? 'N/A' : row.type;
+      const type = (row.type || 'N/A').toString().trim() === '' ? 'N/A' : row.type;
       if (!acc[type]) {
         acc[type] = { type: type, ue: 0, poza_ue: 0, total: 0 };
       }
       const val = parseFloat(row.total_turnover || 0);
+      if (isNaN(val)) return acc;
+
       if (row.region === 'UE') {
-        acc[type].ue = val;
+        acc[type].ue += val;
       } else {
-        acc[type].poza_ue = val;
+        acc[type].poza_ue += val;
       }
       acc[type].total += val;
       return acc;

@@ -9,6 +9,26 @@ const files = [
 
 console.log('--- RAPORT ANALIZY PLIKÓW EXCEL ---\n');
 
+// Symulacja logiki wykrywania nagłówka z backendu
+function simulateHeaderDetection(ws) {
+    const rawMatrix = xlsx.utils.sheet_to_json(ws, { header: 1 });
+    console.log(`\n[DEBUG] Próba wykrycia nagłówka (max 20 wierszy):`);
+    
+    for (let i = 0; i < Math.min(rawMatrix.length, 20); i++) {
+        const row = rawMatrix[i] || [];
+        const rowStr = JSON.stringify(row).toUpperCase();
+        console.log(`Wiersz ${i}: ${rowStr}`);
+        
+        // Warunek z backendu
+        if ((rowStr.includes('DEALNO') || rowStr.includes('K_DEALNO')) && rowStr.includes('PRODUCT')) {
+            console.log(`>>> SUKCES: Znaleziono nagłówek w wierszu ${i}`);
+            return i;
+        }
+    }
+    console.log(`>>> BŁĄD: Nie znaleziono nagłówka!`);
+    return -1;
+}
+
 files.forEach(file => {
     try {
         const filePath = path.resolve(process.cwd(), file);
@@ -25,9 +45,7 @@ files.forEach(file => {
         workbook.SheetNames.forEach(name => {
             console.log(`\n--- Arkusz: ${name} ---`);
             const ws = workbook.Sheets[name];
-            // Pobierz 5 wierszy z każdego arkusza
-            const rows = xlsx.utils.sheet_to_json(ws, { header: 1, range: 0, raw: false }).slice(0, 5);
-            rows.forEach((row, i) => console.log(`Row ${i}:`, JSON.stringify(row)));
+            simulateHeaderDetection(ws);
         });
     } catch (error) {
         console.error(`Błąd podczas przetwarzania pliku ${file}:`, error.message);
