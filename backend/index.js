@@ -68,13 +68,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     console.log(`Otrzymano plik: ${req.file.originalname}`);
 
-    // Automatycznie uruchom migrację tabeli fx_transactions (jeśli nie istnieje)
-    try {
-      const schema = fs.readFileSync(path.join(__dirname, 'schema_fx.sql'), 'utf8');
-      await db.query(schema);
-    } catch (migErr) {
-      console.warn('Migration warning:', migErr.message);
-    }
+    // UWAGA: Automigracja wyłączona na prośbę użytkownika.
+    // Tabela fx_transactions musi zostać utworzona ręcznie (plik schema_fx.sql).
 
     // Uruchom import z dedykowaną logiką
     const result = await importFxFile(req.file.path, req.file.originalname);
