@@ -191,12 +191,17 @@ app.get('/api/transactions', async (req, res) => {
     const result = await db.query(`
       SELECT 
         id,
-        to_char(leg1_date, 'YYYY-MM-DD') as date,
+        CASE 
+          WHEN product_type = 'FxSwap' THEN to_char(leg2_date, 'YYYY-MM-DD') 
+          ELSE to_char(leg1_date, 'YYYY-MM-DD') 
+        END as date,
         bo_dealno,
+        fo_dealno,
         product_type,
         deal_type,
         client_name as client,
         ccode,
+        leg1_date,
         leg1_ccy1,
         leg1_amount1,
         leg1_ccy2,
@@ -215,7 +220,7 @@ app.get('/api/transactions', async (req, res) => {
         import_date
       FROM fx_transactions 
       ${whereClause}
-      ORDER BY ${finalSortField} ${sortOrder} 
+      ORDER BY ${finalSortField === 'leg1_date' ? 'date' : finalSortField} ${sortOrder} 
       LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
     `, [...queryParams, limit, offset]);
     
