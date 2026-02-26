@@ -96,8 +96,62 @@ async function importFxFile(filePath, originalFilename) {
     return { success: false, count: 0 };
   }
   
-  // Wczytujemy dane ponownie, zaczynając od wykrytego wiersza nagłówka
-  const rawData = xlsx.utils.sheet_to_json(sheet, { range: headerRowIndex });
+  const headers = rawMatrix[headerRowIndex].map((cell, idx) => {
+      const val = cell ? String(cell).trim() : `UNKNOWN_${idx}`;
+      return val;
+  });
+  
+  console.log(`Używam nagłówków z wiersza ${headerRowIndex}:`, headers.slice(0, 5), '...');
+
+  // 2. Wczytujemy dane od wiersza następnego (headerRowIndex + 1)
+  // Przekazujemy 'header: headers', aby wymusić użycie tych nazw jako kluczy dla danych
+  // sheet_to_json nie przyjmuje tablicy w header, tylko liczbę lub 'A'.
+  // Musimy sami przemapować nazwy jeśli chcemy być "pancerni".
+  
+  // ZMIANA PODEJŚCIA:
+  // sheet_to_json z 'header: 1' i range od nagłówka daje nam tablicę tablic.
+  // Pierwszy wiersz to nagłówek. Reszta to dane.
+  // Sami mapujemy to na obiekty.
+  
+  const rawDataArray = xlsx.utils.sheet_to_json(sheet, { 
+      header: 1,
+      range: headerRowIndex 
+  });
+  
+  if (!rawDataArray || rawDataArray.length === 0) {
+      console.log('Brak danych w arkuszu');
+      return { success: false, count: 0 };
+  }
+  
+  // Pierwszy element to nagłówek (zmieniamy na UPPERCASE)
+  const headerCells = (rawDataArray[0] || []).map(c => String(c || '').trim().toUpperCase());
+  
+  console.log('Znalezione nagłówki (pierwsze 5):', headerCells.slice(0, 5));
+  
+  // Reszta to dane
+  const dataRows = rawDataArray.slice(1);
+  
+  // Konwertujemy tablice na obiekty
+  const rawData = dataRows.map(row => {
+      const obj = {};
+      headerCells.forEach((key, idx) => {
+          if (key && key !== 'UNDEFINED' && key !== 'NULL') {
+             // row[idx] to wartość komórki.
+             // UWAGA: Jeśli headerCells ma np. 10 kolumn, a row ma 5, to undefined.
+             // Jeśli row[idx] nie istnieje, to wpisujemy null/undefined.
+             obj[key] = row[idx];
+          }
+      });
+      return obj;
+  });
+  
+  // LOGIKA DODATKOWA:
+  // Jeśli po headerRowIndex są jeszcze wiersze nagłówkowe (np. puste, scalone),
+  // to rawData może zawierać śmieci na początku.
+  // Ale nasza pętla filtruje po `if (!row['PRODUCT']) continue;` więc powinna pominąć śmieci.
+  
+  const client = await db.pool.connect();
+
   
   const client = await db.pool.connect();
   
@@ -110,26 +164,26 @@ async function importFxFile(filePath, originalFilename) {
     
     let processedCount = 0;
     
-    // Diagnostyka: Pokaż klucze pierwszego wiersza, jeśli są dane
+    // Diagnostyka
+    console.log(`Przetwarzam ${rawData.length} wierszy danych.`);
     if (rawData.length > 0) {
-        console.log('Przykładowe klucze wczytanego wiersza:', Object.keys(rawData[0]));
-    } else {
-        console.log('UWAGA: Tablica rawData jest pusta! (Błędny zakres?)');
+        console.log('Klucze pierwszego wiersza:', Object.keys(rawData[0]));
     }
     
     for (const row of rawData) {
-      // Normalizacja kluczy (wielkość liter, spacje)
-      // Tworzymy nowy obiekt z kluczami UPPERCASE i bez spacji
-      const normalizedRow = {};
-      Object.keys(row).forEach(key => {
-        const cleanKey = key.toUpperCase().trim();
-        normalizedRow[cleanKey] = row[key];
-      });
+      // Normalizacja kluczy (już zrobiliśmy przy mapowaniu rawDataArray)
       
-      // Używamy znormalizowanego wiersza do sprawdzania warunku
-      if (!normalizedRow['PRODUCT']) continue;
+      // Sprawdzamy klucz PRODUCT.
+      // W wersji 2 pliku FORWARD nagłówek "PRODUCT" może się nazywać inaczej lub mieć inne wielkości liter.
+      // Ale znormalizowaliśmy do UPPERCASE w headerCells.
       
-      const transaction = mapRowToTransaction(normalizedRow, type); // Przekazujemy znormalizowany wiersz
+      if (!row['PRODUCT']) {
+          // Diagnostyka dla pierwszych 5 pominiętych
+          // console.log('Pominąłem wiersz bez PRODUCT:', JSON.stringify(row));
+          continue; 
+      }
+      
+      const transaction = mapRowToTransaction(row, type);
       
       // Dodaj metadane
       transaction.source_filename = originalFilename;
@@ -152,41 +206,48 @@ async function importFxFile(filePath, originalFilename) {
   }
 }
 
+// UWAGA: Funkcja mapRowToTransaction ma teraz prościej, bo klucze są już UPPERCASE
+// Ale musimy pamiętać, że `row` to teraz obiekt z kluczami, które SĄ W NAGŁÓWKU.
+// Jeśli w nagłówku jest literówka, to klucz w `row` też będzie miał literówkę.
+
 function mapRowToTransaction(row, type) {
   const tx = {};
   
-  // UWAGA: row ma teraz klucze znormalizowane (UPPERCASE)
+  // Pomocnicza funkcja do bezpiecznego pobierania wartości
+  // (w razie gdyby klucz miał spacje na końcu w nagłówku, mimo że robiliśmy trim)
+  // Ale robiliśmy trim().
+  const get = (key) => row[key];
   
   if (type === 'SWAP') {
     // Mapowanie dla FX SWAP
-    tx.fo_dealno = row['K_DEALNO'];
-    tx.bo_dealno = row['KTP_DEALNO'];
-    tx.product_type = row['PRODUCT']; 
-    tx.deal_type = row['DEALTYPE'];
-    tx.client_name = row['CUSTOMER'];
+    tx.fo_dealno = get('K_DEALNO');
+    tx.bo_dealno = get('KTP_DEALNO');
+    tx.product_type = get('PRODUCT'); 
+    tx.deal_type = get('DEALTYPE');
+    tx.client_name = get('CUSTOMER');
     
-    tx.ccode = row['CCODE'];
-    tx.uccode = row['UCCODE'];
+    tx.ccode = get('CCODE');
+    tx.uccode = get('UCCODE');
     
     // Noga 1 (Initial)
-    tx.leg1_date = parseDate(row['VDATE_INITIAL']);
-    tx.leg1_ccy1 = row['CCY1'];
-    tx.leg1_amount1 = parseNumber(row['CCY1AMT_INITIAL']);
-    tx.leg1_ccy2 = row['CCY2'];
-    tx.leg1_amount2 = parseNumber(row['CCY2AMT_INITIAL']);
+    tx.leg1_date = parseDate(get('VDATE_INITIAL'));
+    tx.leg1_ccy1 = get('CCY1');
+    tx.leg1_amount1 = parseNumber(get('CCY1AMT_INITIAL'));
+    tx.leg1_ccy2 = get('CCY2');
+    tx.leg1_amount2 = parseNumber(get('CCY2AMT_INITIAL'));
     
     // Noga 2 (Maturity)
-    tx.leg2_date = parseDate(row['VDATE_MATURITY']);
-    tx.leg2_ccy1 = row['CCY1']; 
-    tx.leg2_amount1 = parseNumber(row['CCY1AMT_MATURITY']);
-    tx.leg2_ccy2 = row['CCY2'];
-    tx.leg2_amount2 = parseNumber(row['CCY2AMT_MATURITY']);
+    tx.leg2_date = parseDate(get('VDATE_MATURITY'));
+    tx.leg2_ccy1 = get('CCY1'); 
+    tx.leg2_amount1 = parseNumber(get('CCY1AMT_MATURITY'));
+    tx.leg2_ccy2 = get('CCY2');
+    tx.leg2_amount2 = parseNumber(get('CCY2AMT_MATURITY'));
     
     // Dane Raportowe - Kursy
-    tx.report_nbp_rate_leg1_ccy1 = parseNumber(row['SPOTRATE_T_1_CCY1_INITIAL']);
-    tx.report_nbp_rate_leg1_ccy2 = parseNumber(row['SPOTRATE_T_1_CCY2_INITIAL']);
-    tx.report_nbp_rate_leg2_ccy1 = parseNumber(row['SPOTRATE_T_1_CCY1_MATURITY']);
-    tx.report_nbp_rate_leg2_ccy2 = parseNumber(row['SPOTRATE_T_1_CCY2_MATURITY']);
+    tx.report_nbp_rate_leg1_ccy1 = parseNumber(get('SPOTRATE_T_1_CCY1_INITIAL'));
+    tx.report_nbp_rate_leg1_ccy2 = parseNumber(get('SPOTRATE_T_1_CCY2_INITIAL'));
+    tx.report_nbp_rate_leg2_ccy1 = parseNumber(get('SPOTRATE_T_1_CCY1_MATURITY'));
+    tx.report_nbp_rate_leg2_ccy2 = parseNumber(get('SPOTRATE_T_1_CCY2_MATURITY'));
     
     // Przeliczenia
     tx.report_pln_amount_leg1_ccy1 = (tx.leg1_amount1 && tx.report_nbp_rate_leg1_ccy1) ? (tx.leg1_amount1 * tx.report_nbp_rate_leg1_ccy1) : null;
@@ -194,26 +255,26 @@ function mapRowToTransaction(row, type) {
     tx.report_pln_amount_leg2_ccy1 = (tx.leg2_amount1 && tx.report_nbp_rate_leg2_ccy1) ? (tx.leg2_amount1 * tx.report_nbp_rate_leg2_ccy1) : null;
     tx.report_pln_amount_leg2_ccy2 = (tx.leg2_amount2 && tx.report_nbp_rate_leg2_ccy2) ? (tx.leg2_amount2 * tx.report_nbp_rate_leg2_ccy2) : null;
     
-    tx.report_turnover_vat = parseNumber(row['TURNOVER_VAT']);
+    tx.report_turnover_vat = parseNumber(get('TURNOVER_VAT'));
     
   } else if (type === 'FORWARD') {
     // Mapowanie dla FX FORWARD
     // Klucze są teraz UPPERCASE!
-    tx.fo_dealno = row['FO_DEALNO'] || row['KTP_DEALNO']; 
-    tx.bo_dealno = row['KTP_DEALNO'];
-    tx.product_type = row['PRODUCT']; 
-    tx.deal_type = row['DEALTYPE'];
-    tx.client_name = row['CPTY_SHORTNAME'];
+    tx.fo_dealno = get('FO_DEALNO') || get('KTP_DEALNO'); 
+    tx.bo_dealno = get('KTP_DEALNO');
+    tx.product_type = get('PRODUCT'); 
+    tx.deal_type = get('DEALTYPE'); // Było DealType
+    tx.client_name = get('CPTY_SHORTNAME'); // Było Cpty_ShortName
     
-    tx.ccode = row['COUNTRIES_NAME']; 
+    tx.ccode = get('COUNTRIES_NAME'); 
     tx.uccode = null; 
     
     // Noga 1 (Settlement)
-    tx.leg1_date = parseDate(row['VALUEDATE']); 
-    tx.leg1_ccy1 = row['CURRENCY1']; 
-    tx.leg1_amount1 = parseNumber(row['PRINCIPALCUR1']);
-    tx.leg1_ccy2 = row['CURRENCY2']; 
-    tx.leg1_amount2 = parseNumber(row['PRINCIPALCUR2']);
+    tx.leg1_date = parseDate(get('VALUEDATE')); 
+    tx.leg1_ccy1 = get('CURRENCY1'); 
+    tx.leg1_amount1 = parseNumber(get('PRINCIPALCUR1'));
+    tx.leg1_ccy2 = get('CURRENCY2'); 
+    tx.leg1_amount2 = parseNumber(get('PRINCIPALCUR2'));
     
     // Noga 2 (NULL)
     tx.leg2_date = null;
@@ -223,8 +284,8 @@ function mapRowToTransaction(row, type) {
     tx.leg2_amount2 = null;
     
     // Dane Raportowe
-    tx.report_nbp_rate_leg1_ccy1 = parseNumber(row['SPOTRATE_T_1_CCY']);
-    tx.report_nbp_rate_leg1_ccy2 = parseNumber(row['SPOTRATE_T_1_CRTCCY']);
+    tx.report_nbp_rate_leg1_ccy1 = parseNumber(get('SPOTRATE_T_1_CCY'));
+    tx.report_nbp_rate_leg1_ccy2 = parseNumber(get('SPOTRATE_T_1_CRTCCY'));
     tx.report_nbp_rate_leg2_ccy1 = null;
     tx.report_nbp_rate_leg2_ccy2 = null;
     
@@ -234,7 +295,7 @@ function mapRowToTransaction(row, type) {
     tx.report_pln_amount_leg2_ccy1 = null;
     tx.report_pln_amount_leg2_ccy2 = null;
     
-    tx.report_turnover_vat = parseNumber(row['TURNOVER_VAT']);
+    tx.report_turnover_vat = parseNumber(get('TURNOVER_VAT'));
   }
   
   return tx;
