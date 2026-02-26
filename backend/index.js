@@ -274,6 +274,24 @@ app.post('/api/audit-turnover', async (req, res) => {
   }
 });
 
+// AUDIT STATS ENDPOINT
+app.get('/api/audit-stats', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE is_audit_ok = true) as ok_count,
+        COUNT(*) FILTER (WHERE is_audit_ok = false) as error_count,
+        COUNT(*) FILTER (WHERE is_audit_ok IS NULL) as pending_count
+      FROM fx_transactions
+    `);
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Audit stats failed:', err);
+    res.status(500).json({ error: 'Stats failed', details: err.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
   console.log(`Auth active for user: ${APP_USER}`);

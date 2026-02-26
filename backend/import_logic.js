@@ -68,34 +68,32 @@ async function importFxFile(filePath, originalFilename) {
   // Pobieramy surowe dane (array of arrays) aby znaleźć nagłówek
   const rawMatrix = xlsx.utils.sheet_to_json(sheet, { header: 1 });
   
-  let headerRowIndex = 0;
-  
-  // Wymuszenie dla SWAP (jeśli znany problem z pustym wierszem)
-  if (type === 'SWAP') {
-     console.log('Typ SWAP: Wymuszam szukanie nagłówka od wiersza 2 (index 1) ze względu na specyfikę pliku.');
-     // Sprawdźmy czy wiersz 1 faktycznie wygląda na nagłówek, jeśli nie, szukajmy dalej
-     if (rawMatrix.length > 1) {
-        headerRowIndex = 1; 
-     }
-  }
+  let headerRowIndex = -1;
 
-  // Jeśli nie wymuszono lub chcemy się upewnić - skanujemy
-  // Ale dla SWAP zaczynamy od 1, żeby pominąć mylący wiersz 0
-  const startScan = (type === 'SWAP') ? 1 : 0;
-
-  for (let i = startScan; i < Math.min(rawMatrix.length, 20); i++) {
-    const rowStr = JSON.stringify(rawMatrix[i] || []).toUpperCase();
-    // Szukamy słów kluczowych w wierszu
-    // Wymagamy więcej niż tylko DEALNO i PRODUCT, aby uniknąć fałszywych nagłówków
-    if (
-      (rowStr.includes('DEALNO') || rowStr.includes('K_DEALNO') || rowStr.includes('FO_DEALNO')) && 
-      rowStr.includes('PRODUCT') &&
-      (rowStr.includes('CUSTOMER') || rowStr.includes('CPTY') || rowStr.includes('CCY'))
-    ) {
+  // Skanujemy pierwsze 20 wierszy szukając nagłówka
+  // Wymagamy co najmniej 3 NIEpuste komórki zawierające słowa kluczowe,
+  // żeby odrzucić wiersze ze scalonymi komórkami (zawierające wszystko w jednej komórce)
+  for (let i = 0; i < Math.min(rawMatrix.length, 20); i++) {
+    const row = rawMatrix[i] || [];
+    
+    // Zliczamy ile komórek zawiera słowa kluczowe (ochrona przed scalonymi komórkami)
+    const keywordCells = row.filter(cell => {
+      if (!cell) return false;
+      const s = String(cell).toUpperCase();
+      return s.includes('DEALNO') || s === 'PRODUCT' || s.includes('CUSTOMER') 
+          || s.includes('CPTY') || s.includes('CCY') || s.includes('CURRENCY');
+    });
+    
+    if (keywordCells.length >= 3) {
       headerRowIndex = i;
-      console.log(`Znaleziono nagłówek w wierszu: ${i} (zawiera DEALNO, PRODUCT oraz CUSTOMER/CCY)`);
+      console.log(`Znaleziono nagłówek w wierszu: ${i} (${keywordCells.length} komórek kluczowych: ${keywordCells.slice(0,5).join(', ')})`);
       break;
     }
+  }
+
+  if (headerRowIndex === -1) {
+    console.error('Nie znaleziono wiersza nagłówkowego w pliku!');
+    return { success: false, count: 0 };
   }
   
   // Wczytujemy dane ponownie, zaczynając od wykrytego wiersza nagłówka

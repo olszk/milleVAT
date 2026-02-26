@@ -260,6 +260,7 @@ function App() {
   const [vatTurnover, setVatTurnover] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
+  const [auditStats, setAuditStats] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -318,7 +319,8 @@ function App() {
       const results = await Promise.allSettled([
         axios.get('/api/wss', config),
         axios.get('/api/transactions', config),
-        axios.get('/api/vat-turnover', config)
+        axios.get('/api/vat-turnover', config),
+        axios.get('/api/audit-stats', config)
       ]);
       
       if (results[0].status === 'fulfilled') {
@@ -353,6 +355,10 @@ function App() {
             total: item.total !== undefined ? parseFloat(item.total) || 0 : 0
           };
         }));
+      }
+
+      if (results[3].status === 'fulfilled') {
+        setAuditStats(results[3].value.data);
       }
       
       const failed = results.filter(r => r.status === 'rejected');
@@ -649,7 +655,24 @@ function App() {
         </div>
 
         {/* PRZYCISK AUDYTU */}
-        <div className="flex justify-center mb-12">
+        <div className="flex flex-col items-center justify-center mb-12 gap-6">
+          {auditStats && (
+            <div className="flex gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+                <div className="px-4 py-2 bg-green-50 rounded-lg flex flex-col items-center min-w-[100px]">
+                    <span className="text-xs font-bold text-green-800 uppercase">Zgodne</span>
+                    <span className="text-xl font-black text-green-600">{auditStats.ok_count || 0}</span>
+                </div>
+                <div className="px-4 py-2 bg-red-50 rounded-lg flex flex-col items-center min-w-[100px]">
+                    <span className="text-xs font-bold text-red-800 uppercase">Błędy</span>
+                    <span className="text-xl font-black text-red-600">{auditStats.error_count || 0}</span>
+                </div>
+                <div className="px-4 py-2 bg-gray-50 rounded-lg flex flex-col items-center min-w-[100px]">
+                    <span className="text-xs font-bold text-gray-500 uppercase">Oczekujące</span>
+                    <span className="text-xl font-black text-gray-400">{auditStats.pending_count || 0}</span>
+                </div>
+            </div>
+          )}
+
           <button 
             onClick={handleAudit}
             disabled={isAuditing}
@@ -716,7 +739,7 @@ function App() {
                   <th onClick={() => handleSort('report_pln_amount_leg1_ccy1')} className="px-6 py-4 text-right cursor-pointer hover:text-millennium transition-colors">
                     Kwota (PLN) {sortField === 'report_pln_amount_leg1_ccy1' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-6 py-4 text-center">Status</th>
+                  <th className="px-6 py-4 text-center">Audyt</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -751,15 +774,28 @@ function App() {
                           {formatNumber(t.amount, { minimumFractionDigits: 0 })}
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <div className="flex justify-center">
-                            {t.isEligible ? (
-                              <div className="flex items-center gap-1.5 text-green-600 bg-green-50 px-2 py-1 rounded-lg text-[10px] font-bold" title="Kwalifikuje się do WSS">
-                                <CheckCircle2 size={12} /> WSS
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 text-gray-400 bg-gray-50 px-2 py-1 rounded-lg text-[10px] font-bold">
-                                <Clock size={12} /> BRAK
-                              </div>
+                          <div className="flex justify-center items-center gap-2">
+                            {t.is_audit_ok === true && (
+                                <div className="flex items-center gap-1.5 text-green-600 bg-green-50 px-2 py-1 rounded-lg text-[10px] font-bold">
+                                    <CheckCircle2 size={12} /> OK
+                                </div>
+                            )}
+                            {t.is_audit_ok === false && (
+                                <div className="flex items-center gap-1.5 text-red-600 bg-red-50 px-2 py-1 rounded-lg text-[10px] font-bold" title={`Różnica: ${formatNumber(t.diff_turnover_vat)} PLN`}>
+                                    <AlertTriangle size={12} /> BŁĄD
+                                </div>
+                            )}
+                            {(t.is_audit_ok === null || t.is_audit_ok === undefined) && (
+                                <div className="flex items-center gap-1.5 text-gray-400 bg-gray-50 px-2 py-1 rounded-lg text-[10px] font-bold">
+                                    <Clock size={12} /> ?
+                                </div>
+                            )}
+                            
+                            {/* Wyświetl różnicę jeśli jest błąd */}
+                            {t.is_audit_ok === false && (
+                                <span className="text-[10px] font-mono text-red-500 font-bold">
+                                    {formatNumber(t.diff_turnover_vat)}
+                                </span>
                             )}
                           </div>
                         </td>
