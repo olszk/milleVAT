@@ -71,12 +71,10 @@ async function importFxFile(filePath, originalFilename) {
   let headerRowIndex = -1;
 
   // Skanujemy pierwsze 20 wierszy szukając nagłówka
-  // Wymagamy co najmniej 3 NIEpuste komórki zawierające słowa kluczowe,
-  // żeby odrzucić wiersze ze scalonymi komórkami (zawierające wszystko w jednej komórce)
   for (let i = 0; i < Math.min(rawMatrix.length, 20); i++) {
     const row = rawMatrix[i] || [];
     
-    // Zliczamy ile komórek zawiera słowa kluczowe (ochrona przed scalonymi komórkami)
+    // Zliczamy ile komórek zawiera słowa kluczowe
     const keywordCells = row.filter(cell => {
       if (!cell) return false;
       const s = String(cell).toUpperCase();
@@ -89,6 +87,12 @@ async function importFxFile(filePath, originalFilename) {
       console.log(`Znaleziono nagłówek w wierszu: ${i} (${keywordCells.length} komórek kluczowych: ${keywordCells.slice(0,5).join(', ')})`);
       break;
     }
+  }
+
+  // Fallback na prośbę użytkownika: jeśli nie znaleziono, a to plik SWAP/FORWARD, spróbuj wiersza 1 (index 1) lub 0
+  if (headerRowIndex === -1 && (type === 'SWAP' || type === 'FORWARD')) {
+      console.warn('Automatyczna detekcja zawiodła. Próbuję domyślnego wiersza 0.');
+      headerRowIndex = 0;
   }
 
   if (headerRowIndex === -1) {
@@ -164,19 +168,19 @@ async function importFxFile(filePath, originalFilename) {
     // Diagnostyka
     console.log(`Przetwarzam ${rawData.length} wierszy danych.`);
     if (rawData.length > 0) {
-        console.log('Klucze pierwszego wiersza:', Object.keys(rawData[0]));
+        console.log('Nagłówki (klucze):', Object.keys(rawData[0]));
+        console.log('Przykładowy wiersz (przed filtrem):', JSON.stringify(rawData[0]));
     }
     
     for (const row of rawData) {
       // Normalizacja kluczy (już zrobiliśmy przy mapowaniu rawDataArray)
       
       // Sprawdzamy klucz PRODUCT.
-      // W wersji 2 pliku FORWARD nagłówek "PRODUCT" może się nazywać inaczej lub mieć inne wielkości liter.
-      // Ale znormalizowaliśmy do UPPERCASE w headerCells.
-      
       if (!row['PRODUCT']) {
-          // Diagnostyka dla pierwszych 5 pominiętych
-          // console.log('Pominąłem wiersz bez PRODUCT:', JSON.stringify(row));
+          // Diagnostyka dla odrzuconych
+          if (processedCount === 0) { // Loguj tylko pierwszy przypadek żeby nie spamować
+             console.log('Pominąłem wiersz (brak PRODUCT):', JSON.stringify(row));
+          }
           continue; 
       }
       
