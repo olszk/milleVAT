@@ -128,22 +128,29 @@ async function importFxFile(filePath, originalFilename) {
   }
   
   // Pierwszy element to nagłówek (zmieniamy na UPPERCASE)
-  const headerCells = (rawDataArray[0] || []).map(c => String(c || '').trim().toUpperCase());
+  const rawHeader = rawDataArray[0] || [];
+  const headerCells = rawHeader.map(c => String(c || '').trim().toUpperCase());
   
-  console.log('Znalezione nagłówki (pierwsze 5):', headerCells.slice(0, 5));
+  console.log(`DEBUG: headerRowIndex=${headerRowIndex}`);
+  console.log('DEBUG: rawHeader (pierwsze 10):', rawHeader.slice(0, 10));
+  console.log('DEBUG: headerCells (znormalizowane):', headerCells.slice(0, 10));
   
   // Reszta to dane
   const dataRows = rawDataArray.slice(1);
+  console.log(`DEBUG: Liczba wierszy danych: ${dataRows.length}`);
+  if (dataRows.length > 0) {
+      console.log('DEBUG: Pierwszy wiersz danych (raw):', JSON.stringify(dataRows[0]));
+  }
   
   // Konwertujemy tablice na obiekty
   const rawData = dataRows.map(row => {
       const obj = {};
       headerCells.forEach((key, idx) => {
-          if (key && key !== 'UNDEFINED' && key !== 'NULL') {
-             // row[idx] to wartość komórki.
-             // UWAGA: Jeśli headerCells ma np. 10 kolumn, a row ma 5, to undefined.
-             // Jeśli row[idx] nie istnieje, to wpisujemy null/undefined.
-             obj[key] = row[idx];
+          if (key && key !== 'UNDEFINED' && key !== 'NULL' && !key.startsWith('__EMPTY')) {
+             const val = row[idx];
+             if (val !== undefined) {
+                 obj[key] = val;
+             }
           }
       });
       return obj;
@@ -166,10 +173,9 @@ async function importFxFile(filePath, originalFilename) {
     let processedCount = 0;
     
     // Diagnostyka
-    console.log(`Przetwarzam ${rawData.length} wierszy danych.`);
+    console.log(`Przetwarzam ${rawData.length} zmapowanych obiektów.`);
     if (rawData.length > 0) {
-        console.log('Nagłówki (klucze):', Object.keys(rawData[0]));
-        console.log('Przykładowy wiersz (przed filtrem):', JSON.stringify(rawData[0]));
+        console.log('DEBUG: Przykładowy zmapowany obiekt[0]:', JSON.stringify(rawData[0]));
     }
     
     for (const row of rawData) {
@@ -178,8 +184,8 @@ async function importFxFile(filePath, originalFilename) {
       // Sprawdzamy klucz PRODUCT.
       if (!row['PRODUCT']) {
           // Diagnostyka dla odrzuconych
-          if (processedCount === 0) { // Loguj tylko pierwszy przypadek żeby nie spamować
-             console.log('Pominąłem wiersz (brak PRODUCT):', JSON.stringify(row));
+          if (processedCount === 0) { // Loguj tylko pierwszy przypadek
+             console.log('DEBUG: Odrzucono (brak PRODUCT):', Object.keys(row));
           }
           continue; 
       }
