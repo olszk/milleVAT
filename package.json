@@ -5,7 +5,7 @@
   "main": "backend/index.js",
   "scripts": {
     "start": "node backend/index.js",
-    "build": "echo 'Frontend is pre-built, nothing to build'",
+    "build": "cd frontend && npm install && npm run build",
     "install-backend": "cd backend && npm install"
   },
   "engines": {
