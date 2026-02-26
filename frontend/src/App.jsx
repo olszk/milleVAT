@@ -429,6 +429,10 @@ function App() {
     { title: 'IRS CIRS', description: 'Swapy stóp procentowych oraz swapy walutowo-procentowe.', icon: PieChart }
   ];
 
+  const totalPozaUE = (vatTurnover || []).reduce((sum, item) => sum + (item?.poza_ue || 0), 0);
+  const totalAll    = (vatTurnover || []).reduce((sum, item) => sum + (item?.total   || 0), 0);
+  const wssPercent  = totalAll > 0 ? Math.ceil((totalPozaUE / totalAll) * 100) : 0;
+
   return (
     <div className="min-h-screen bg-[#F9F9F9] font-sans text-gray-900 pb-20">
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -483,22 +487,22 @@ function App() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <StatCard 
             label="Współczynnik WSS" 
-            value={`${(wssData.percentage || 0).toFixed(2)}%`} 
-            subValue="Kalkulacja za bieżący okres" 
+            value={`${wssPercent}%`} 
+            subValue="Zaokrąglony w górę do pełnych %" 
             icon={BarChart3} 
             colorClass="text-millennium" 
           />
           <StatCard 
-            label="Obrót opodatkowany" 
-            value={`${formatNumber(wssData.turnover)} PLN`} 
-            subValue="Podstawa do odliczenia" 
+            label="Obrót z prawem do odliczenia VAT" 
+            value={`${formatNumber(totalPozaUE)} PLN`} 
+            subValue="Sprzedaż poza UE (dodatni obrót VAT)" 
             icon={CheckCircle2} 
             colorClass="text-green-600" 
           />
           <StatCard 
             label="Obrót całkowity" 
-            value={`${formatNumber(wssData.total)} PLN`} 
-            subValue="Suma wszystkich transakcji" 
+            value={`${formatNumber(totalAll)} PLN`} 
+            subValue="Suma całkowita dodatniego obrotu VAT" 
             icon={Download} 
             colorClass="text-gray-800" 
           />
