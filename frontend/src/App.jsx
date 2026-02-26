@@ -128,13 +128,35 @@ function App() {
     }
   };
 
-  const handleUpload = (file, type) => {
+  const handleUpload = async (file, type) => {
     if (!file) return;
     setIsUploading(true);
-    setTimeout(() => {
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('reportType', type);
+
+    const savedUser = localStorage.getItem('milleVatUser');
+    const savedPass = localStorage.getItem('milleVatPass');
+
+    try {
+      const response = await axios.post('/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'x-user': savedUser,
+          'x-password': savedPass
+        }
+      });
+
+      // Sukces - odśwież dane
+      alert(`Sukces! Przetworzono ${response.data.rowsProcessed} wierszy.`);
+      fetchData(savedUser, savedPass); 
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert(`Błąd: ${err.response?.data?.error || err.message}`);
+    } finally {
       setIsUploading(false);
-      alert(`Pomyślnie załadowano raport ${type}: ${file.name}`);
-    }, 1500);
+    }
   };
 
   if (!isLoggedIn) {

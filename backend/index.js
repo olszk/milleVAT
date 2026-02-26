@@ -47,6 +47,10 @@ app.use('/api', authMiddleware);
 // Serwowanie plików statycznych frontendu (opcjonalne, jeśli backend ma obsługiwać wszystko)
 app.use(express.static(path.join(__dirname, '../')));
 
+const fs = require('fs');
+const { importFxFile } = require('./import_logic');
+const upload = multer({ dest: 'uploads/' });
+
 // Test endpoint (publiczny)
 app.get('/health', (req, res) => {
   res.json({ 
@@ -57,12 +61,94 @@ app.get('/health', (req, res) => {
   });
 });
 
+// ENDPOINT IMPORTU PLIKÓW
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  
+  try {
+    console.log(`Otrzymano plik: ${req.file.originalname}`);
+
+    // Automatycznie uruchom migrację tabeli fx_transactions (jeśli nie istnieje)
+    try {
+      const schema = fs.readFileSync(path.join(__dirname, 'schema_fx.sql'), 'utf8');
+      await db.query(schema);
+    } catch (migErr) {
+      console.warn('Migration warning:', migErr.message);
+    }
+
+    // Uruchom import z dedykowaną logiką
+    const result = await importFxFile(req.file.path, req.file.originalname);
+    
+    // Usuń plik tymczasowy po udanym imporcie
+    fs.unlink(req.file.path, (err) => {
+      if (err) console.error('Błąd usuwania pliku tymczasowego:', err);
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Plik został pomyślnie przetworzony.', 
+      rowsProcessed: result.count,
+      batchId: result.batchId
+    });
+
+  } catch (err) {
+    console.error('Błąd przetwarzania uploadu:', err);
+    res.status(500).json({ 
+      error: 'Wystąpił błąd podczas przetwarzania pliku.', 
+      details: err.message 
+    });
+  }
+});
+
+// Endpoint do pobierania transakcji
 app.get('/api/transactions', async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM raw_transactions ORDER BY transaction_date DESC');
-    res.json(result.rows);
+    // 1. Sprawdź czy nowa tabela istnieje
+    try {
+      const result = await db.query(`
+        SELECT 
+          id,
+          to_char(leg1_date, 'YYYY-MM-DD') as date,
+          product_type || ' ' || deal_type as type,
+          client_name as client,
+          COALESCE(report_pln_amount_leg1_ccy1, leg1_amount1, 0) as amount,
+          report_turnover_vat as vat_status,
+          CASE WHEN report_turnover_vat IS NOT NULL THEN true ELSE false END as is_eligible
+        FROM fx_transactions 
+        ORDER BY id DESC 
+        LIMIT 100
+      `);
+      
+      const mappedRows = result.rows.map(row => ({
+        id: row.id,
+        date: row.date,
+        type: row.type || 'N/A',
+        client: row.client || 'N/A',
+        amount: parseFloat(row.amount),
+        vatStatus: row.vat_status ? `${parseFloat(row.vat_status).toFixed(2)} PLN` : 'Brak danych',
+        isEligible: row.is_eligible
+      }));
+
+      return res.json(mappedRows);
+    } catch (newTableErr) {
+      console.warn('Nowa tabela fx_transactions błąd:', newTableErr.message);
+    }
+
+    // 2. Fallback do starej tabeli raw_transactions
+    const oldResult = await db.query('SELECT * FROM raw_transactions ORDER BY transaction_date DESC LIMIT 50');
+    return res.json(oldResult.rows.map(row => ({
+      id: row.id,
+      date: row.transaction_date,
+      type: 'Stary format',
+      client: 'Nieznany',
+      amount: parseFloat(row.net_amount),
+      vatStatus: row.vat_code,
+      isEligible: row.is_eligible_for_wss
+    })));
+
   } catch (err) {
-    res.status(500).json({ error: 'Database error' });
+    console.error('Błąd pobierania transakcji:', err);
+    res.status(500).json({ error: 'Database error', details: err.message });
   }
 });
 
