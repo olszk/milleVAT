@@ -28,16 +28,20 @@ CREATE TABLE IF NOT EXISTS raw_transactions (
     raw_data JSONB -- wszystkie pozostałe kolumny z oryginalnego pliku
 );
 
--- Widok do wyliczania współczynnika WSS
--- WSS = (Sprzedaż dająca prawo do odliczenia) / (Sprzedaż całkowita)
--- Uwaga: Logika w widoku może być później doprecyzowana
+// Widok do wyliczania współczynnika WSS (na podstawie nowej tabeli fx_transactions)
+// WSS = (Sprzedaż dająca prawo do odliczenia) / (Sprzedaż całkowita)
 CREATE OR REPLACE VIEW v_wss_calculation AS
 SELECT 
-    SUM(CASE WHEN is_eligible_for_wss = TRUE THEN net_amount ELSE 0 END) as turnover_with_deduction,
-    SUM(net_amount) as total_turnover,
+    -- Sumujemy przeliczone kwoty PLN z raportu (można zmienić na audit_pln_... w przyszłości)
+    SUM(COALESCE(report_pln_amount_leg1_ccy1, 0) + COALESCE(report_pln_amount_leg1_ccy2, 0) + COALESCE(report_pln_amount_leg2_ccy1, 0) + COALESCE(report_pln_amount_leg2_ccy2, 0)) as total_turnover,
+    
+    -- Tutaj placeholder dla "opodatkowanej" - na razie zakładamy, że to suma wszystkiego
+    -- W przyszłości trzeba dodać logikę is_eligible_for_wss
+    SUM(COALESCE(report_turnover_vat, 0)) as turnover_with_deduction, 
+    
     CASE 
-        WHEN SUM(net_amount) > 0 
-        THEN ROUND(SUM(CASE WHEN is_eligible_for_wss = TRUE THEN net_amount ELSE 0 END) / SUM(net_amount) * 100, 2)
+        WHEN SUM(COALESCE(report_pln_amount_leg1_ccy1, 0)) > 0 
+        THEN ROUND(SUM(COALESCE(report_turnover_vat, 0)) / SUM(COALESCE(report_pln_amount_leg1_ccy1, 0)) * 100, 2)
         ELSE 0 
     END as wss_percentage
-FROM raw_transactions;
+FROM fx_transactions;

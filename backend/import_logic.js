@@ -54,7 +54,21 @@ async function importFxFile(filePath, originalFilename) {
   const rawMatrix = xlsx.utils.sheet_to_json(sheet, { header: 1 });
   
   let headerRowIndex = 0;
-  for (let i = 0; i < Math.min(rawMatrix.length, 20); i++) {
+  
+  // Wymuszenie dla SWAP (jeśli znany problem z pustym wierszem)
+  if (type === 'SWAP') {
+     console.log('Typ SWAP: Wymuszam szukanie nagłówka od wiersza 2 (index 1) ze względu na specyfikę pliku.');
+     // Sprawdźmy czy wiersz 1 faktycznie wygląda na nagłówek, jeśli nie, szukajmy dalej
+     if (rawMatrix.length > 1) {
+        headerRowIndex = 1; 
+     }
+  }
+
+  // Jeśli nie wymuszono lub chcemy się upewnić - skanujemy
+  // Ale dla SWAP zaczynamy od 1, żeby pominąć mylący wiersz 0
+  const startScan = (type === 'SWAP') ? 1 : 0;
+
+  for (let i = startScan; i < Math.min(rawMatrix.length, 20); i++) {
     const rowStr = JSON.stringify(rawMatrix[i] || []).toUpperCase();
     // Szukamy słów kluczowych w wierszu
     // Wymagamy więcej niż tylko DEALNO i PRODUCT, aby uniknąć fałszywych nagłówków

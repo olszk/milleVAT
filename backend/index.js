@@ -114,6 +114,18 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     // UWAGA: Automigracja wyłączona na prośbę użytkownika.
     // Tabela fx_transactions musi zostać utworzona ręcznie (plik schema_fx.sql).
+    
+    // Ale możemy spróbować naprawić widok WSS jeśli nie istnieje, bo to tylko widok
+    try {
+        await db.query(`
+            CREATE OR REPLACE VIEW v_wss_calculation AS
+            SELECT 
+                SUM(COALESCE(report_turnover_vat, 0)) as turnover_with_deduction,
+                SUM(COALESCE(report_pln_amount_leg1_ccy1, 0) + COALESCE(report_pln_amount_leg1_ccy2, 0)) as total_turnover,
+                0 as wss_percentage
+            FROM fx_transactions;
+        `);
+    } catch (e) { console.log('View creation skipped/failed', e.message); }
 
     // Uruchom import z dedykowaną logiką
     const result = await importFxFile(req.file.path, req.file.originalname);
