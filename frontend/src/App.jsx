@@ -25,10 +25,17 @@ import {
 const formatNumber = (val, options = {}) => {
   const n = parseFloat(val);
   if (isNaN(n)) return '0,00';
+  
+  // Ensure minimumFractionDigits <= maximumFractionDigits to avoid RangeError
+  const minDigits = options.minimumFractionDigits !== undefined ? options.minimumFractionDigits : 2;
+  const maxDigits = options.maximumFractionDigits !== undefined 
+    ? Math.max(options.maximumFractionDigits, minDigits) 
+    : Math.max(minDigits, 2);
+
   return n.toLocaleString(undefined, { 
-    minimumFractionDigits: 2, 
-    maximumFractionDigits: 2,
-    ...options 
+    ...options,
+    minimumFractionDigits: minDigits, 
+    maximumFractionDigits: maxDigits
   });
 };
 
