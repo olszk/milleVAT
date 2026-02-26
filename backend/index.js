@@ -51,6 +51,11 @@ const fs = require('fs');
 const { importFxFile } = require('./import_logic');
 const upload = multer({ dest: 'uploads/' });
 
+// Lista krajów UE (ISO 3166-1 alpha-2)
+const EU_COUNTRIES = [
+  'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'EL', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'
+];
+
 // Test endpoint (publiczny)
 app.get('/health', (req, res) => {
   res.json({ 
@@ -59,6 +64,43 @@ app.get('/health', (req, res) => {
     env: process.env.NODE_ENV,
     time: new Date().toISOString()
   });
+});
+
+// ENDPOINT OBROTU VAT DLA WSPÓŁCZYNNIKA
+app.get('/api/vat-turnover', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        COALESCE(product_type, 'N/A') || ' ' || COALESCE(deal_type, 'N/A') as type,
+        CASE WHEN ccode = ANY($1) THEN 'UE' ELSE 'POZA_UE' END as region,
+        SUM(report_turnover_vat) as total_turnover
+      FROM fx_transactions
+      WHERE report_turnover_vat > 0
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `, [EU_COUNTRIES]);
+
+    // Agregacja danych dla widoku frontendu
+    const aggregated = result.rows.reduce((acc, row) => {
+      const type = row.type.trim() === '' ? 'N/A' : row.type;
+      if (!acc[type]) {
+        acc[type] = { type: type, ue: 0, poza_ue: 0, total: 0 };
+      }
+      const val = parseFloat(row.total_turnover || 0);
+      if (row.region === 'UE') {
+        acc[type].ue = val;
+      } else {
+        acc[type].poza_ue = val;
+      }
+      acc[type].total += val;
+      return acc;
+    }, {});
+
+    res.json(Object.values(aggregated));
+  } catch (err) {
+    console.error('Błąd pobierania obrotu VAT:', err);
+    res.status(500).json({ error: 'Database error', details: err.message });
+  }
 });
 
 // ENDPOINT IMPORTU PLIKÓW

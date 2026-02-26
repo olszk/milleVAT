@@ -72,6 +72,7 @@ function App() {
   
   const [transactions, setTransactions] = useState([]);
   const [wssData, setWssData] = useState({ percentage: 0, turnover: 0, total: 0 });
+  const [vatTurnover, setVatTurnover] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
 
   // Sprawdź czy użytkownik jest już zalogowany (w localStorage)
@@ -116,12 +117,14 @@ function App() {
       headers: { 'x-user': user, 'x-password': pass }
     };
     try {
-      const [wssRes, transRes] = await Promise.all([
+      const [wssRes, transRes, vatRes] = await Promise.all([
         axios.get('/api/wss', config),
-        axios.get('/api/transactions', config)
+        axios.get('/api/transactions', config),
+        axios.get('/api/vat-turnover', config)
       ]);
       setWssData(wssRes.data || { percentage: 0, turnover: 0, total: 0 });
       setTransactions(transRes.data || []);
+      setVatTurnover(vatRes.data || []);
     } catch (err) {
       console.error("Error fetching data:", err);
       if (err.response?.status === 401) handleLogout();
@@ -279,6 +282,60 @@ function App() {
           <StatCard label="Współczynnik WSS" value={`${wssData.percentage}%`} subValue="Kalkulacja za bieżący okres" icon={BarChart3} colorClass="text-millennium" />
           <StatCard label="Obrót opodatkowany" value={`${wssData.turnover.toLocaleString()} PLN`} subValue="Podstawa do odliczenia" icon={CheckCircle2} colorClass="text-green-600" />
           <StatCard label="Obrót całkowity" value={`${wssData.total.toLocaleString()} PLN`} subValue="Suma wszystkich transakcji" icon={Download} colorClass="text-gray-800" />
+        </div>
+
+        {/* NOWY MODUŁ: Obrót VAT wg typów i regionów */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-12">
+          <div className="p-6 border-b border-gray-100 bg-gray-50/30">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <PieChart size={22} className="text-millennium" />
+              Obrót VAT dla współczynnika
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">Zestawienie sum obrotu VAT (dodatniego) w podziale na UE i poza UE.</p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#FDFDFD] text-gray-400 text-[11px] uppercase tracking-[0.1em] font-bold">
+                  <th className="px-6 py-4 border-b border-gray-100">Typ transakcji</th>
+                  <th className="px-6 py-4 border-b border-gray-100 text-right">Sprzedaż UE (PLN)</th>
+                  <th className="px-6 py-4 border-b border-gray-100 text-right">Sprzedaż poza UE (PLN)</th>
+                  <th className="px-6 py-4 border-b border-gray-100 text-right bg-gray-50/50">Suma Razem (PLN)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {vatTurnover.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="py-12 text-center text-gray-400 italic">Brak danych do zestawienia obrotu</td>
+                  </tr>
+                ) : (
+                  <>
+                    {vatTurnover.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4 text-sm font-semibold text-gray-800">{item.type}</td>
+                        <td className="px-6 py-4 text-sm text-right font-mono text-blue-600">{item.ue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-6 py-4 text-sm text-right font-mono text-orange-600">{item.poza_ue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-6 py-4 text-sm text-right font-mono font-bold bg-gray-50/30">{item.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-50/80 font-bold border-t-2 border-gray-100">
+                      <td className="px-6 py-4 text-sm uppercase tracking-wider">Suma całkowita</td>
+                      <td className="px-6 py-4 text-sm text-right font-mono text-blue-700">
+                        {vatTurnover.reduce((sum, item) => sum + item.ue, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-right font-mono text-orange-700">
+                        {vatTurnover.reduce((sum, item) => sum + item.poza_ue, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-right font-mono text-gray-900 bg-gray-100/50">
+                        {vatTurnover.reduce((sum, item) => sum + item.total, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
