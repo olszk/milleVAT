@@ -436,7 +436,7 @@ function App() {
         headers: { 'x-user': savedUser, 'x-password': savedPass }
       });
       
-      alert(`Audyt zakończony sukcesem!\nPrzetworzono ${response.data.count} rekordów.`);
+      // Refresh data to show new stats and values
       fetchData(savedUser, savedPass);
     } catch (err) {
       console.error('Audit error:', err);
@@ -655,32 +655,16 @@ function App() {
         </div>
 
         {/* PRZYCISK AUDYTU */}
-        <div className="flex flex-col items-center justify-center mb-12 gap-6">
-          {auditStats && (
-            <div className="flex gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                <div className="px-4 py-2 bg-green-50 rounded-lg flex flex-col items-center min-w-[100px]">
-                    <span className="text-xs font-bold text-green-800 uppercase">Zgodne</span>
-                    <span className="text-xl font-black text-green-600">{auditStats.ok_count || 0}</span>
-                </div>
-                <div className="px-4 py-2 bg-red-50 rounded-lg flex flex-col items-center min-w-[100px]">
-                    <span className="text-xs font-bold text-red-800 uppercase">Błędy</span>
-                    <span className="text-xl font-black text-red-600">{auditStats.error_count || 0}</span>
-                </div>
-                <div className="px-4 py-2 bg-gray-50 rounded-lg flex flex-col items-center min-w-[100px]">
-                    <span className="text-xs font-bold text-gray-500 uppercase">Oczekujące</span>
-                    <span className="text-xl font-black text-gray-400">{auditStats.pending_count || 0}</span>
-                </div>
-            </div>
-          )}
-
+        {/* PRZYCISK AUDYTU I WYNIKI */}
+        <div className="flex flex-col md:flex-row items-center justify-center mb-12 gap-6 h-auto md:h-24">
           <button 
             onClick={handleAudit}
             disabled={isAuditing}
             className={`
-              group relative px-8 py-4 bg-white border-2 border-millennium text-millennium rounded-2xl 
+              h-24 md:h-full group relative px-8 bg-white border-2 border-millennium text-millennium rounded-2xl 
               font-black uppercase tracking-widest hover:bg-millennium hover:text-white transition-all 
               shadow-lg shadow-millennium/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
-              flex items-center gap-3
+              flex items-center gap-3 w-64 justify-center
             `}
           >
             {isAuditing ? (
@@ -695,6 +679,30 @@ function App() {
               </>
             )}
           </button>
+
+          <div className={`
+            h-24 md:h-full flex items-stretch bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-500
+            ${auditStats ? 'opacity-100 translate-x-0' : 'opacity-70 grayscale'}
+          `}>
+              <div className="w-28 flex flex-col items-center justify-center border-r border-gray-50 bg-green-50/50">
+                  <span className="text-[10px] font-black text-green-700 uppercase tracking-widest mb-1">Zgodne</span>
+                  <span className="text-2xl font-black text-green-600 tracking-tight">
+                    {auditStats ? auditStats.ok_count || 0 : '-'}
+                  </span>
+              </div>
+              <div className="w-28 flex flex-col items-center justify-center border-r border-gray-50 bg-red-50/50">
+                  <span className="text-[10px] font-black text-red-700 uppercase tracking-widest mb-1">Błędy</span>
+                  <span className="text-2xl font-black text-red-600 tracking-tight">
+                    {auditStats ? auditStats.error_count || 0 : '-'}
+                  </span>
+              </div>
+              <div className="w-32 flex flex-col items-center justify-center bg-gray-50/30">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Oczekujące</span>
+                  <span className="text-2xl font-black text-gray-600 tracking-tight">
+                    {auditStats ? auditStats.pending_count || 0 : '-'}
+                  </span>
+              </div>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

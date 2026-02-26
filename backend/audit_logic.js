@@ -50,6 +50,12 @@ async function getNbpRate(currency, dateStr) {
 async function performAudit() {
   const client = await db.pool.connect();
   let processedCount = 0;
+  let stats = {
+    processed: 0,
+    ok: 0,
+    nok: 0,
+    totalDiff: 0
+  };
   
   try {
     await client.query('BEGIN');
@@ -121,6 +127,15 @@ async function performAudit() {
       // Check if difference is negligible (e.g. within 0.05 PLN due to rounding)
       updates.is_audit_ok = Math.abs(updates.diff_turnover_vat) < 0.05;
 
+      // Update stats
+      stats.processed++;
+      if (updates.is_audit_ok) {
+        stats.ok++;
+      } else {
+        stats.nok++;
+        stats.totalDiff += updates.diff_turnover_vat;
+      }
+
       // Update in DB
       await client.query(
         `UPDATE fx_transactions SET
@@ -151,12 +166,10 @@ async function performAudit() {
           tx.id
         ]
       );
-      
-      processedCount++;
     }
     
     await client.query('COMMIT');
-    return processedCount;
+    return stats;
     
   } catch (e) {
     await client.query('ROLLBACK');

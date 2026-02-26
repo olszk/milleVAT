@@ -265,9 +265,9 @@ app.get('/api/wss', async (req, res) => {
 app.post('/api/audit-turnover', async (req, res) => {
   try {
     console.log('Starting audit process...');
-    const count = await performAudit();
-    console.log(`Audit completed. Processed ${count} records.`);
-    res.json({ success: true, count });
+    const stats = await performAudit();
+    console.log(`Audit completed. Stats:`, stats);
+    res.json({ success: true, stats });
   } catch (err) {
     console.error('Audit failed:', err);
     res.status(500).json({ error: 'Audit failed', details: err.message });
@@ -281,7 +281,8 @@ app.get('/api/audit-stats', async (req, res) => {
       SELECT 
         COUNT(*) FILTER (WHERE is_audit_ok = true) as ok_count,
         COUNT(*) FILTER (WHERE is_audit_ok = false) as error_count,
-        COUNT(*) FILTER (WHERE is_audit_ok IS NULL) as pending_count
+        COUNT(*) FILTER (WHERE is_audit_ok IS NULL) as pending_count,
+        SUM(COALESCE(diff_turnover_vat, 0)) as total_diff
       FROM fx_transactions
     `);
     
