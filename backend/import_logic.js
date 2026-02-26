@@ -151,9 +151,6 @@ async function importFxFile(filePath, originalFilename) {
   // Ale nasza pętla filtruje po `if (!row['PRODUCT']) continue;` więc powinna pominąć śmieci.
   
   const client = await db.pool.connect();
-
-  
-  const client = await db.pool.connect();
   
   try {
     await client.query('BEGIN');
