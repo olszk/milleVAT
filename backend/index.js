@@ -47,12 +47,6 @@ app.use('/api', authMiddleware);
 // Serwowanie plików statycznych frontendu z folderu dist
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-// Fallback dla React Router (SPA) - jeśli ścieżka nie jest API, serwuj index.html
-app.get('/:any*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-});
-
 const fs = require('fs');
 const { importFxFile } = require('./import_logic');
 const upload = multer({ dest: 'uploads/' });
