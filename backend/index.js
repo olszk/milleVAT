@@ -44,8 +44,14 @@ const authMiddleware = (req, res, next) => {
 // Zabezpieczamy wszystkie pozostałe ścieżki /api
 app.use('/api', authMiddleware);
 
-// Serwowanie plików statycznych frontendu (opcjonalne, jeśli backend ma obsługiwać wszystko)
-app.use(express.static(path.join(__dirname, '../')));
+// Serwowanie plików statycznych frontendu z folderu dist
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+// Fallback dla React Router (SPA) - jeśli ścieżka nie jest API, serwuj index.html
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
 
 const fs = require('fs');
 const { importFxFile } = require('./import_logic');
