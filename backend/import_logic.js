@@ -57,9 +57,14 @@ async function importFxFile(filePath, originalFilename) {
   for (let i = 0; i < Math.min(rawMatrix.length, 20); i++) {
     const rowStr = JSON.stringify(rawMatrix[i] || []).toUpperCase();
     // Szukamy słów kluczowych w wierszu
-    if ((rowStr.includes('DEALNO') || rowStr.includes('K_DEALNO') || rowStr.includes('FO_DEALNO')) && rowStr.includes('PRODUCT')) {
+    // Wymagamy więcej niż tylko DEALNO i PRODUCT, aby uniknąć fałszywych nagłówków
+    if (
+      (rowStr.includes('DEALNO') || rowStr.includes('K_DEALNO') || rowStr.includes('FO_DEALNO')) && 
+      rowStr.includes('PRODUCT') &&
+      (rowStr.includes('CUSTOMER') || rowStr.includes('CPTY') || rowStr.includes('CCY'))
+    ) {
       headerRowIndex = i;
-      console.log(`Znaleziono nagłówek w wierszu: ${i}`);
+      console.log(`Znaleziono nagłówek w wierszu: ${i} (zawiera DEALNO, PRODUCT oraz CUSTOMER/CCY)`);
       break;
     }
   }
