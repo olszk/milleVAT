@@ -88,6 +88,10 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
   } catch (err) {
     console.error('Błąd przetwarzania uploadu:', err);
+    // Usuń plik tymczasowy nawet przy błędzie
+    if (req.file) {
+      fs.unlink(req.file.path, (e) => {}); 
+    }
     res.status(500).json({ 
       error: 'Wystąpił błąd podczas przetwarzania pliku.', 
       details: err.message 
