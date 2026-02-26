@@ -117,16 +117,37 @@ function App() {
       headers: { 'x-user': user, 'x-password': pass }
     };
     try {
-      const [wssRes, transRes, vatRes] = await Promise.all([
+      // Używamy Promise.allSettled aby jeden błąd nie zatrzymał całego ładowania
+      const results = await Promise.allSettled([
         axios.get('/api/wss', config),
         axios.get('/api/transactions', config),
         axios.get('/api/vat-turnover', config)
       ]);
-      setWssData(wssRes.data || { percentage: 0, turnover: 0, total: 0 });
-      setTransactions(transRes.data || []);
-      setVatTurnover(vatRes.data || []);
+      
+      if (results[0].status === 'fulfilled') {
+        const d = results[0].value.data || {};
+        setWssData({
+          percentage: d.wss_percentage || 0,
+          turnover: d.turnover_with_deduction || 0,
+          total: d.total_turnover || 0
+        });
+      } else {
+        console.warn("Błąd ładowania WSS:", results[0].reason);
+      }
+
+      if (results[1].status === 'fulfilled') {
+        setTransactions(results[1].value.data || []);
+      } else {
+        console.error("Błąd ładowania transakcji:", results[1].reason);
+      }
+
+      if (results[2].status === 'fulfilled') {
+        setVatTurnover(results[2].value.data || []);
+      } else {
+        console.error("Błąd ładowania obrotu VAT:", results[2].reason);
+      }
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.error("General error fetching data:", err);
       if (err.response?.status === 401) handleLogout();
     }
   };

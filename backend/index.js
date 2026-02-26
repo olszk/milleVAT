@@ -198,7 +198,8 @@ app.get('/api/wss', async (req, res) => {
     const result = await db.query('SELECT * FROM v_wss_calculation');
     res.json(result.rows[0] || { wss_percentage: 0, turnover_with_deduction: 0, total_turnover: 0 });
   } catch (err) {
-    res.status(500).json({ error: 'Database error' });
+    console.warn('Błąd pobierania WSS (widok v_wss_calculation prawdopodobnie nie istnieje):', err.message);
+    res.json({ wss_percentage: 0, turnover_with_deduction: 0, total_turnover: 0 });
   }
 });
 
