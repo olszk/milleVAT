@@ -49,6 +49,7 @@ app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 const fs = require('fs');
 const { importFxFile } = require('./import_logic');
+const { performAudit } = require('./audit_logic');
 const upload = multer({ dest: 'uploads/' });
 
 // Lista krajów UE (ISO 3166-1 alpha-2)
@@ -215,6 +216,9 @@ app.get('/api/transactions', async (req, res) => {
         leg2_rate,
         COALESCE(report_pln_amount_leg1_ccy1, leg1_amount1, 0) as amount_pln,
         report_turnover_vat as vat_status,
+        audit_turnover_vat,
+        diff_turnover_vat,
+        is_audit_ok,
         CASE WHEN report_turnover_vat IS NOT NULL THEN true ELSE false END as is_eligible,
         source_filename,
         import_date
@@ -254,6 +258,19 @@ app.get('/api/wss', async (req, res) => {
   } catch (err) {
     console.warn('Błąd pobierania WSS (widok v_wss_calculation prawdopodobnie nie istnieje):', err.message);
     res.json({ wss_percentage: 0, turnover_with_deduction: 0, total_turnover: 0 });
+  }
+});
+
+// START AUDIT ENDPOINT
+app.post('/api/audit-turnover', async (req, res) => {
+  try {
+    console.log('Starting audit process...');
+    const count = await performAudit();
+    console.log(`Audit completed. Processed ${count} records.`);
+    res.json({ success: true, count });
+  } catch (err) {
+    console.error('Audit failed:', err);
+    res.status(500).json({ error: 'Audit failed', details: err.message });
   }
 });
 

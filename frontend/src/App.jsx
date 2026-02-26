@@ -191,6 +191,17 @@ const TransactionModal = ({ transaction, onClose }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-2">
                   {detailRow('Wartość w PLN', `${formatNumber(transaction.amount)} PLN`, true)}
                   {detailRow('Status VAT', transaction.vatStatus)}
+                  {transaction.audit_turnover_vat !== undefined && transaction.audit_turnover_vat !== null && (
+                    <>
+                      {detailRow('Audyt VAT', `${formatNumber(transaction.audit_turnover_vat)} PLN`, true)}
+                      <div className="flex justify-between py-2 border-b border-gray-50 last:border-0">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Wynik Audytu</span>
+                        <span className={`text-sm font-bold ${transaction.is_audit_ok ? 'text-green-600' : 'text-red-600'}`}>
+                          {transaction.is_audit_ok ? 'ZGODNY' : `RÓŻNICA: ${formatNumber(transaction.diff_turnover_vat)}`}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   {detailRow('Nr FO', transaction.fo_dealno)}
                   <div className="flex justify-between py-2 items-center">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Kwalifikowalność</span>
@@ -248,6 +259,7 @@ function App() {
   const [wssData, setWssData] = useState({ percentage: 0, turnover: 0, total: 0 });
   const [vatTurnover, setVatTurnover] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAuditing, setIsAuditing] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -401,6 +413,30 @@ function App() {
       alert(`Błąd: ${err.response?.data?.error || err.message}`);
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleAudit = async () => {
+    if (isAuditing) return;
+    if (!window.confirm('Czy na pewno chcesz uruchomić audyt wszystkich transakcji? \nTo może potrwać kilka minut.')) return;
+
+    setIsAuditing(true);
+    setError(null);
+    const savedUser = localStorage.getItem('milleVatUser');
+    const savedPass = localStorage.getItem('milleVatPass');
+
+    try {
+      const response = await axios.post('/api/audit-turnover', {}, {
+        headers: { 'x-user': savedUser, 'x-password': savedPass }
+      });
+      
+      alert(`Audyt zakończony sukcesem!\nPrzetworzono ${response.data.count} rekordów.`);
+      fetchData(savedUser, savedPass);
+    } catch (err) {
+      console.error('Audit error:', err);
+      alert(`Błąd audytu: ${err.response?.data?.details || err.message}`);
+    } finally {
+      setIsAuditing(false);
     }
   };
 
@@ -610,6 +646,32 @@ function App() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* PRZYCISK AUDYTU */}
+        <div className="flex justify-center mb-12">
+          <button 
+            onClick={handleAudit}
+            disabled={isAuditing}
+            className={`
+              group relative px-8 py-4 bg-white border-2 border-millennium text-millennium rounded-2xl 
+              font-black uppercase tracking-widest hover:bg-millennium hover:text-white transition-all 
+              shadow-lg shadow-millennium/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
+              flex items-center gap-3
+            `}
+          >
+            {isAuditing ? (
+              <>
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                PRZETWARZANIE...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={20} strokeWidth={2.5} />
+                AUDYTUJ WYNIK
+              </>
+            )}
+          </button>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
