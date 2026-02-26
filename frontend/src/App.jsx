@@ -9,15 +9,15 @@ import {
   ChevronRight, 
   Download, 
   Search,
-  CheckCircle2,
-  Clock,
-  ArrowRightLeft,
-  Coins,
-  Building2,
-  PieChart,
-  Lock,
-  User,
-  LogOut,
+  CheckCircle2, 
+  Clock, 
+  ArrowRightLeft, 
+  Coins, 
+  Building2, 
+  PieChart, 
+  Lock, 
+  User, 
+  LogOut, 
   AlertTriangle
 } from 'lucide-react';
 
@@ -36,56 +36,92 @@ const formatDate = (val) => {
   if (!val) return '—';
   // Use YYYY-MM-DD format
   try {
-    return new Date(val).toISOString().split('T')[0];
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return '—';
+    return d.toISOString().split('T')[0];
   } catch (e) {
-    return val;
+    return '—';
   }
 };
 
-const ReportCard = ({ title, description, icon: Icon, onUpload }) => {
-  const [isDragging, setIsDragging] = useState(false);
+// Sub-components for TransactionModal
+const DetailRow = ({ label, value, isMonospace = false, valueColor = 'text-gray-900' }) => (
+  <div className="flex justify-between py-2 border-b border-gray-50 last:border-0">
+    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</span>
+    <span className={`text-sm ${valueColor} ${isMonospace ? 'font-mono' : 'font-medium'}`}>{value || '—'}</span>
+  </div>
+);
 
-  return (
-    <div 
-      className={`relative group bg-white p-6 rounded-2xl shadow-sm border-2 border-dashed transition-all duration-300 flex flex-col items-center text-center cursor-pointer
-        ${isDragging ? 'border-millennium bg-millennium-light scale-[1.02]' : 'border-gray-100 hover:border-millennium hover:shadow-md'}`}
-      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={(e) => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer && e.dataTransfer.files[0]) onUpload(e.dataTransfer.files[0]); }}
-      onClick={() => {
-        const input = document.getElementById(`upload-${title}`);
-        if (input) input.click();
-      }}
-    >
-      <input 
-        type="file" 
-        id={`upload-${title}`} 
-        className="hidden" 
-        onChange={(e) => { if (e.target.files && e.target.files[0]) onUpload(e.target.files[0]); }}
-      />
-      <div className={`p-4 rounded-full mb-4 transition-colors duration-300 ${isDragging ? 'bg-white text-millennium' : 'bg-gray-50 text-gray-400 group-hover:bg-millennium-light group-hover:text-millennium'}`}>
-        {Icon ? <Icon size={32} strokeWidth={1.5} /> : <Upload size={32} strokeWidth={1.5} />}
+const LegSection = ({ title, date, ccy1, amt1, ccy2, amt2, rate, icon: Icon, colorClass }) => (
+  <div className={`p-5 rounded-2xl border ${colorClass} bg-white shadow-sm transition-all hover:shadow-md h-full`}>
+    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 opacity-70">
+      {Icon && <Icon size={14} />} {title}
+    </h4>
+    <div className="space-y-3">
+      <div className="flex justify-between items-end">
+        <span className="text-[10px] font-bold text-gray-400 uppercase">Data rozliczenia</span>
+        <span className="text-sm font-bold text-gray-900">{formatDate(date)}</span>
       </div>
-      <h3 className="font-bold text-gray-900 mb-1 text-sm tracking-wide uppercase">{title || 'Raport'}</h3>
-      <p className="text-xs text-gray-500 line-clamp-2">{description || ''}</p>
+      <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-50">
+        <div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{String(ccy1 || 'Waluta 1')}</p>
+          <p className="text-sm font-mono font-bold text-gray-900 tabular-nums">{formatNumber(amt1)}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{String(ccy2 || 'Waluta 2')}</p>
+          <p className="text-sm font-mono font-bold text-gray-900 tabular-nums">{formatNumber(amt2)}</p>
+        </div>
+      </div>
+      <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
+        <span className="text-[10px] font-bold text-gray-400 uppercase">Kurs transakcyjny</span>
+        <span className="text-sm font-mono font-black text-millennium">{rate || '—'}</span>
+      </div>
+    </div>
+  </div>
+);
+
+const DataSection = ({ title, rates, amounts, turnover, isAudit, transaction, isSwap }) => (
+  <div className={`p-5 rounded-2xl border ${isAudit ? 'border-orange-100 bg-orange-50/10' : 'border-blue-100 bg-blue-50/10'}`}>
+      <h4 className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 ${isAudit ? 'text-orange-600' : 'text-blue-600'}`}>
+          {isAudit ? <Lock size={14} /> : <FileText size={14} />} {title}
+      </h4>
       
-      <div className="mt-4 flex items-center text-millennium font-semibold text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-        Załaduj plik <ChevronRight size={14} className="ml-1" />
-      </div>
-    </div>
-  );
-};
+      <div className="space-y-4">
+          <div>
+              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Wynik na transakcji (VAT Turnover)</span>
+              <span className={`text-lg font-mono font-bold ${isAudit ? 'text-orange-700' : 'text-blue-700'}`}>
+                  {formatNumber(turnover)} PLN
+              </span>
+          </div>
 
-const StatCard = ({ label, value, subValue, icon: Icon, colorClass }) => (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between">
-    <div>
-      <p className="text-sm font-medium text-gray-500 mb-1">{label}</p>
-      <h3 className={`text-2xl font-bold ${colorClass || 'text-gray-900'}`}>{value || '0'}</h3>
-      {subValue && <p className="text-xs text-gray-400 mt-1">{subValue}</p>}
-    </div>
-    <div className={`p-2 rounded-lg bg-gray-50 text-gray-400`}>
-      {Icon ? <Icon size={20} /> : <BarChart3 size={20} />}
-    </div>
+          <div className="pt-2 border-t border-gray-100/50">
+              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Kursy Walut (4)</span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex justify-between"><span>L1 {String(transaction?.leg1_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(rates?.l1c1, {minimumFractionDigits: 4})}</span></div>
+                  <div className="flex justify-between"><span>L1 {String(transaction?.leg1_ccy2 || 'CCY2')}:</span> <span className="font-mono">{formatNumber(rates?.l1c2, {minimumFractionDigits: 4})}</span></div>
+                  {isSwap && (
+                      <>
+                          <div className="flex justify-between"><span>L2 {String(transaction?.leg2_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(rates?.l2c1, {minimumFractionDigits: 4})}</span></div>
+                          <div className="flex justify-between"><span>L2 {String(transaction?.leg2_ccy2 || 'CCY2')}:</span> <span className="font-mono">{formatNumber(rates?.l2c2, {minimumFractionDigits: 4})}</span></div>
+                      </>
+                  )}
+              </div>
+          </div>
+
+          <div className="pt-2 border-t border-gray-100/50">
+              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Wartości Przepływów (4)</span>
+              <div className="grid grid-cols-1 gap-1 text-xs">
+                  <div className="flex justify-between"><span>L1 {String(transaction?.leg1_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(amounts?.l1c1)} PLN</span></div>
+                  <div className="flex justify-between"><span>L1 {String(transaction?.leg1_ccy2 || 'CCY2')}:</span> <span className="font-mono">{formatNumber(amounts?.l1c2)} PLN</span></div>
+                  {isSwap && (
+                      <>
+                          <div className="flex justify-between"><span>L2 {String(transaction?.leg2_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(amounts?.l2c1)} PLN</span></div>
+                          <div className="flex justify-between"><span>L2 {String(transaction?.leg2_ccy2 || 'CCY2')}:</span> <span className="font-mono">{formatNumber(amounts?.l2c2)} PLN</span></div>
+                      </>
+                  )}
+              </div>
+          </div>
+      </div>
   </div>
 );
 
@@ -93,86 +129,6 @@ const TransactionModal = ({ transaction, onClose }) => {
   if (!transaction) return null;
 
   const isSwap = transaction.product_type === 'FxSwap';
-
-  const detailRow = (label, value, isMonospace = false, valueColor = 'text-gray-900') => (
-    <div className="flex justify-between py-2 border-b border-gray-50 last:border-0">
-      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</span>
-      <span className={`text-sm ${valueColor} ${isMonospace ? 'font-mono' : 'font-medium'}`}>{value || '—'}</span>
-    </div>
-  );
-
-  const LegSection = ({ title, date, ccy1, amt1, ccy2, amt2, rate, icon: Icon, colorClass }) => (
-    <div className={`p-5 rounded-2xl border ${colorClass} bg-white shadow-sm transition-all hover:shadow-md h-full`}>
-      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 opacity-70">
-        {Icon && <Icon size={14} />} {title}
-      </h4>
-      <div className="space-y-3">
-        <div className="flex justify-between items-end">
-          <span className="text-[10px] font-bold text-gray-400 uppercase">Data rozliczenia</span>
-          <span className="text-sm font-bold text-gray-900">{formatDate(date)}</span>
-        </div>
-        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-50">
-          <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{String(ccy1 || 'Waluta 1')}</p>
-            <p className="text-sm font-mono font-bold text-gray-900 tabular-nums">{formatNumber(amt1)}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{String(ccy2 || 'Waluta 2')}</p>
-            <p className="text-sm font-mono font-bold text-gray-900 tabular-nums">{formatNumber(amt2)}</p>
-          </div>
-        </div>
-        <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
-          <span className="text-[10px] font-bold text-gray-400 uppercase">Kurs transakcyjny</span>
-          <span className="text-sm font-mono font-black text-millennium">{rate || '—'}</span>
-        </div>
-      </div>
-    </div>
-  );
-
-  const DataSection = ({ title, rates, amounts, turnover, isAudit }) => (
-    <div className={`p-5 rounded-2xl border ${isAudit ? 'border-orange-100 bg-orange-50/10' : 'border-blue-100 bg-blue-50/10'}`}>
-        <h4 className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 ${isAudit ? 'text-orange-600' : 'text-blue-600'}`}>
-            {isAudit ? <Lock size={14} /> : <FileText size={14} />} {title}
-        </h4>
-        
-        <div className="space-y-4">
-            <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Wynik na transakcji (VAT Turnover)</span>
-                <span className={`text-lg font-mono font-bold ${isAudit ? 'text-orange-700' : 'text-blue-700'}`}>
-                    {formatNumber(turnover)} PLN
-                </span>
-            </div>
-
-            <div className="pt-2 border-t border-gray-100/50">
-                <span className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Kursy Walut (4)</span>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex justify-between"><span>L1 {String(transaction.leg1_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(rates.l1c1, {minimumFractionDigits: 4})}</span></div>
-                    <div className="flex justify-between"><span>L1 {String(transaction.leg1_ccy2 || 'CCY2')}:</span> <span className="font-mono">{formatNumber(rates.l1c2, {minimumFractionDigits: 4})}</span></div>
-                    {isSwap && (
-                        <>
-                            <div className="flex justify-between"><span>L2 {String(transaction.leg2_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(rates.l2c1, {minimumFractionDigits: 4})}</span></div>
-                            <div className="flex justify-between"><span>L2 {String(transaction.leg2_ccy2 || 'CCY2')}:</span> <span className="font-mono">{formatNumber(rates.l2c2, {minimumFractionDigits: 4})}</span></div>
-                        </>
-                    )}
-                </div>
-            </div>
-
-            <div className="pt-2 border-t border-gray-100/50">
-                <span className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Wartości Przepływów (4)</span>
-                <div className="grid grid-cols-1 gap-1 text-xs">
-                    <div className="flex justify-between"><span>L1 {String(transaction.leg1_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(amounts.l1c1)} PLN</span></div>
-                    <div className="flex justify-between"><span>L1 {String(transaction.leg1_ccy2 || 'CCY2')}:</span> <span className="font-mono">{formatNumber(amounts.l1c2)} PLN</span></div>
-                    {isSwap && (
-                        <>
-                            <div className="flex justify-between"><span>L2 {String(transaction.leg2_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(amounts.l2c1)} PLN</span></div>
-                            <div className="flex justify-between"><span>L2 {transaction.leg2_ccy2 ? String(transaction.leg2_ccy2) : 'CCY2'}:</span> <span className="font-mono">{formatNumber(amounts.l2c2)} PLN</span></div>
-                        </>
-                    )}
-                </div>
-            </div>
-        </div>
-    </div>
-  );
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
@@ -248,7 +204,7 @@ const TransactionModal = ({ transaction, onClose }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
              <DataSection 
                 title="Dane z Raportu (Source)"
-                turnover={transaction.report_turnover_vat || transaction.vat_status} // Using report_turnover_vat directly if available
+                turnover={transaction.report_turnover_vat !== undefined && transaction.report_turnover_vat !== null ? transaction.report_turnover_vat : transaction.vat_status}
                 rates={{
                     l1c1: transaction.report_nbp_rate_leg1_ccy1,
                     l1c2: transaction.report_nbp_rate_leg1_ccy2,
@@ -330,6 +286,53 @@ const TransactionModal = ({ transaction, onClose }) => {
     </div>
   );
 };
+
+const ReportCard = ({ title, description, icon: Icon, onUpload }) => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  return (
+    <div 
+      className={`relative group bg-white p-6 rounded-2xl shadow-sm border-2 border-dashed transition-all duration-300 flex flex-col items-center text-center cursor-pointer
+        ${isDragging ? 'border-millennium bg-millennium-light scale-[1.02]' : 'border-gray-100 hover:border-millennium hover:shadow-md'}`}
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={(e) => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer && e.dataTransfer.files[0]) onUpload(e.dataTransfer.files[0]); }}
+      onClick={() => {
+        const input = document.getElementById(`upload-${title}`);
+        if (input) input.click();
+      }}
+    >
+      <input 
+        type="file" 
+        id={`upload-${title}`} 
+        className="hidden" 
+        onChange={(e) => { if (e.target.files && e.target.files[0]) onUpload(e.target.files[0]); }}
+      />
+      <div className={`p-4 rounded-full mb-4 transition-colors duration-300 ${isDragging ? 'bg-white text-millennium' : 'bg-gray-50 text-gray-400 group-hover:bg-millennium-light group-hover:text-millennium'}`}>
+        {Icon ? <Icon size={32} strokeWidth={1.5} /> : <Upload size={32} strokeWidth={1.5} />}
+      </div>
+      <h3 className="font-bold text-gray-900 mb-1 text-sm tracking-wide uppercase">{title || 'Raport'}</h3>
+      <p className="text-xs text-gray-500 line-clamp-2">{description || ''}</p>
+      
+      <div className="mt-4 flex items-center text-millennium font-semibold text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+        Załaduj plik <ChevronRight size={14} className="ml-1" />
+      </div>
+    </div>
+  );
+};
+
+const StatCard = ({ label, value, subValue, icon: Icon, colorClass }) => (
+  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between">
+    <div>
+      <p className="text-sm font-medium text-gray-500 mb-1">{label}</p>
+      <h3 className={`text-2xl font-bold ${colorClass || 'text-gray-900'}`}>{value || '0'}</h3>
+      {subValue && <p className="text-xs text-gray-400 mt-1">{subValue}</p>}
+    </div>
+    <div className={`p-2 rounded-lg bg-gray-50 text-gray-400`}>
+      {Icon ? <Icon size={20} /> : <BarChart3 size={20} />}
+    </div>
+  </div>
+);
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -742,7 +745,6 @@ function App() {
           </div>
         </div>
 
-        {/* PRZYCISK AUDYTU */}
         {/* PRZYCISK AUDYTU I WYNIKI */}
         <div className="flex flex-col md:flex-row items-center justify-center mb-12 gap-6 h-auto md:h-24">
           <button 
