@@ -21,6 +21,17 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
+// Helper to safely format numbers
+const formatNumber = (val, options = {}) => {
+  const n = parseFloat(val);
+  if (isNaN(n)) return '0,00';
+  return n.toLocaleString(undefined, { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2,
+    ...options 
+  });
+};
+
 const ReportCard = ({ title, description, icon: Icon, onUpload }) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -147,7 +158,7 @@ function App() {
           if (!t) return { date: 'N/A', type: 'N/A', amount: 0, vatStatus: 'N/A', isEligible: false };
           return {
             ...t,
-            amount: t.amount ? parseFloat(t.amount) || 0 : 0
+            amount: t.amount !== undefined ? parseFloat(t.amount) || 0 : 0
           };
         }));
       }
@@ -158,9 +169,9 @@ function App() {
           if (!item) return { type: 'N/A', ue: 0, poza_ue: 0, total: 0 };
           return {
             ...item,
-            ue: item.ue ? parseFloat(item.ue) || 0 : 0,
-            poza_ue: item.poza_ue ? parseFloat(item.poza_ue) || 0 : 0,
-            total: item.total ? parseFloat(item.total) || 0 : 0
+            ue: item.ue !== undefined ? parseFloat(item.ue) || 0 : 0,
+            poza_ue: item.poza_ue !== undefined ? parseFloat(item.poza_ue) || 0 : 0,
+            total: item.total !== undefined ? parseFloat(item.total) || 0 : 0
           };
         }));
       }
@@ -334,11 +345,30 @@ function App() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <StatCard label="Współczynnik WSS" value={`${(wssData.percentage || 0).toFixed(2)}%`} subValue="Kalkulacja za bieżący okres" icon={BarChart3} colorClass="text-millennium" />
-          <StatCard label="Obrót opodatkowany" value={`${(wssData.turnover || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PLN`} subValue="Podstawa do odliczenia" icon={CheckCircle2} colorClass="text-green-600" />
-          <StatCard label="Obrót całkowity" value={`${(wssData.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PLN`} subValue="Suma wszystkich transakcji" icon={Download} colorClass="text-gray-800" />
+          <StatCard 
+            label="Współczynnik WSS" 
+            value={`${(wssData.percentage || 0).toFixed(2)}%`} 
+            subValue="Kalkulacja za bieżący okres" 
+            icon={BarChart3} 
+            colorClass="text-millennium" 
+          />
+          <StatCard 
+            label="Obrót opodatkowany" 
+            value={`${formatNumber(wssData.turnover)} PLN`} 
+            subValue="Podstawa do odliczenia" 
+            icon={CheckCircle2} 
+            colorClass="text-green-600" 
+          />
+          <StatCard 
+            label="Obrót całkowity" 
+            value={`${formatNumber(wssData.total)} PLN`} 
+            subValue="Suma wszystkich transakcji" 
+            icon={Download} 
+            colorClass="text-gray-800" 
+          />
         </div>
 
+        {/* NOWY MODUŁ: Obrót VAT wg typów i regionów */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-12">
           <div className="p-6 border-b border-gray-100 bg-gray-50/30">
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -365,24 +395,27 @@ function App() {
                   </tr>
                 ) : (
                   <>
-                    {vatTurnover.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-800">{(item && item.type) || 'N/A'}</td>
-                        <td className="px-6 py-4 text-sm text-right font-mono text-blue-600">{(item && item.ue ? item.ue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-4 text-sm text-right font-mono text-orange-600">{(item && item.poza_ue ? item.poza_ue : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-4 text-sm text-right font-mono font-bold bg-gray-50/30">{(item && item.total ? item.total : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      </tr>
-                    ))}
+                    {vatTurnover.map((item, idx) => {
+                      if (!item) return null;
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="px-6 py-4 text-sm font-semibold text-gray-800">{item.type || 'N/A'}</td>
+                          <td className="px-6 py-4 text-sm text-right font-mono text-blue-600">{formatNumber(item.ue)}</td>
+                          <td className="px-6 py-4 text-sm text-right font-mono text-orange-600">{formatNumber(item.poza_ue)}</td>
+                          <td className="px-6 py-4 text-sm text-right font-mono font-bold bg-gray-50/30">{formatNumber(item.total)}</td>
+                        </tr>
+                      );
+                    })}
                     <tr className="bg-gray-50/80 font-bold border-t-2 border-gray-100">
                       <td className="px-6 py-4 text-sm uppercase tracking-wider">Suma całkowita</td>
                       <td className="px-6 py-4 text-sm text-right font-mono text-blue-700">
-                        {(vatTurnover || []).reduce((sum, item) => sum + (item && item.ue ? item.ue : 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {formatNumber((vatTurnover || []).reduce((sum, item) => sum + (item && item.ue ? item.ue : 0), 0))}
                       </td>
                       <td className="px-6 py-4 text-sm text-right font-mono text-orange-700">
-                        {(vatTurnover || []).reduce((sum, item) => sum + (item && item.poza_ue ? item.poza_ue : 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {formatNumber((vatTurnover || []).reduce((sum, item) => sum + (item && item.poza_ue ? item.poza_ue : 0), 0))}
                       </td>
                       <td className="px-6 py-4 text-sm text-right font-mono text-gray-900 bg-gray-100/50">
-                        {(vatTurnover || []).reduce((sum, item) => sum + (item && item.total ? item.total : 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {formatNumber((vatTurnover || []).reduce((sum, item) => sum + (item && item.total ? item.total : 0), 0))}
                       </td>
                     </tr>
                   </>
@@ -426,15 +459,18 @@ function App() {
                     <td colSpan="5" className="py-20 text-center text-gray-400">Brak danych</td>
                   </tr>
                 ) : (
-                  transactions.map((t, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4 text-sm text-gray-600 font-medium">{(t && t.date) || 'N/A'}</td>
-                      <td className="px-6 py-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] font-bold uppercase">{(t && t.type) || 'N/A'}</span></td>
-                      <td className="px-6 py-4 text-sm text-gray-900 font-mono text-right">{(t && typeof t.amount === 'number' ? t.amount : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-4 text-xs text-gray-600">{(t && t.vatStatus) || 'N/A'}</td>
-                      <td className="px-6 py-4 text-center">{t && t.isEligible ? <CheckCircle2 size={14} className="text-green-600 mx-auto" /> : <Clock size={14} className="text-gray-300 mx-auto" />}</td>
-                    </tr>
-                  ))
+                  transactions.map((t, idx) => {
+                    if (!t) return null;
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4 text-sm text-gray-600 font-medium">{t.date || 'N/A'}</td>
+                        <td className="px-6 py-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] font-bold uppercase">{t.type || 'N/A'}</span></td>
+                        <td className="px-6 py-4 text-sm text-gray-900 font-mono text-right">{formatNumber(t.amount, { minimumFractionDigits: 0 })}</td>
+                        <td className="px-6 py-4 text-xs text-gray-600">{t.vatStatus || 'N/A'}</td>
+                        <td className="px-6 py-4 text-center">{t.isEligible ? <CheckCircle2 size={14} className="text-green-600 mx-auto" /> : <Clock size={14} className="text-gray-300 mx-auto" />}</td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
