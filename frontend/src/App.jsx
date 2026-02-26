@@ -113,11 +113,11 @@ const TransactionModal = ({ transaction, onClose }) => {
         </div>
         <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-50">
           <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{ccy1 || 'Waluta 1'}</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{String(ccy1 || 'Waluta 1')}</p>
             <p className="text-sm font-mono font-bold text-gray-900 tabular-nums">{formatNumber(amt1)}</p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{ccy2 || 'Waluta 2'}</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{String(ccy2 || 'Waluta 2')}</p>
             <p className="text-sm font-mono font-bold text-gray-900 tabular-nums">{formatNumber(amt2)}</p>
           </div>
         </div>
@@ -146,12 +146,12 @@ const TransactionModal = ({ transaction, onClose }) => {
             <div className="pt-2 border-t border-gray-100/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Kursy Walut (4)</span>
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex justify-between"><span>L1 {transaction.leg1_ccy1}:</span> <span className="font-mono">{formatNumber(rates.l1c1, {minimumFractionDigits: 4})}</span></div>
-                    <div className="flex justify-between"><span>L1 {transaction.leg1_ccy2}:</span> <span className="font-mono">{formatNumber(rates.l1c2, {minimumFractionDigits: 4})}</span></div>
+                    <div className="flex justify-between"><span>L1 {String(transaction.leg1_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(rates.l1c1, {minimumFractionDigits: 4})}</span></div>
+                    <div className="flex justify-between"><span>L1 {String(transaction.leg1_ccy2 || 'CCY2')}:</span> <span className="font-mono">{formatNumber(rates.l1c2, {minimumFractionDigits: 4})}</span></div>
                     {isSwap && (
                         <>
-                            <div className="flex justify-between"><span>L2 {transaction.leg2_ccy1}:</span> <span className="font-mono">{formatNumber(rates.l2c1, {minimumFractionDigits: 4})}</span></div>
-                            <div className="flex justify-between"><span>L2 {transaction.leg2_ccy2}:</span> <span className="font-mono">{formatNumber(rates.l2c2, {minimumFractionDigits: 4})}</span></div>
+                            <div className="flex justify-between"><span>L2 {String(transaction.leg2_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(rates.l2c1, {minimumFractionDigits: 4})}</span></div>
+                            <div className="flex justify-between"><span>L2 {String(transaction.leg2_ccy2 || 'CCY2')}:</span> <span className="font-mono">{formatNumber(rates.l2c2, {minimumFractionDigits: 4})}</span></div>
                         </>
                     )}
                 </div>
@@ -160,12 +160,12 @@ const TransactionModal = ({ transaction, onClose }) => {
             <div className="pt-2 border-t border-gray-100/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Wartości Przepływów (4)</span>
                 <div className="grid grid-cols-1 gap-1 text-xs">
-                    <div className="flex justify-between"><span>L1 {transaction.leg1_ccy1}:</span> <span className="font-mono">{formatNumber(amounts.l1c1)} PLN</span></div>
-                    <div className="flex justify-between"><span>L1 {transaction.leg1_ccy2}:</span> <span className="font-mono">{formatNumber(amounts.l1c2)} PLN</span></div>
+                    <div className="flex justify-between"><span>L1 {String(transaction.leg1_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(amounts.l1c1)} PLN</span></div>
+                    <div className="flex justify-between"><span>L1 {String(transaction.leg1_ccy2 || 'CCY2')}:</span> <span className="font-mono">{formatNumber(amounts.l1c2)} PLN</span></div>
                     {isSwap && (
                         <>
-                            <div className="flex justify-between"><span>L2 {transaction.leg2_ccy1}:</span> <span className="font-mono">{formatNumber(amounts.l2c1)} PLN</span></div>
-                            <div className="flex justify-between"><span>L2 {transaction.leg2_ccy2}:</span> <span className="font-mono">{formatNumber(amounts.l2c2)} PLN</span></div>
+                            <div className="flex justify-between"><span>L2 {String(transaction.leg2_ccy1 || 'CCY1')}:</span> <span className="font-mono">{formatNumber(amounts.l2c1)} PLN</span></div>
+                            <div className="flex justify-between"><span>L2 {transaction.leg2_ccy2 ? String(transaction.leg2_ccy2) : 'CCY2'}:</span> <span className="font-mono">{formatNumber(amounts.l2c2)} PLN</span></div>
                         </>
                     )}
                 </div>
@@ -262,6 +262,8 @@ const TransactionModal = ({ transaction, onClose }) => {
                     l2c2: transaction.report_pln_amount_leg2_ccy2
                 }}
                 isAudit={false}
+                transaction={transaction}
+                isSwap={isSwap}
              />
 
              <div className="flex flex-col gap-4">
@@ -281,6 +283,8 @@ const TransactionModal = ({ transaction, onClose }) => {
                         l2c2: transaction.audit_pln_amount_leg2_ccy2
                     }}
                     isAudit={true}
+                    transaction={transaction}
+                    isSwap={isSwap}
                  />
                  
                  {/* Difference Summary */}
