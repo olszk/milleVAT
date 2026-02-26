@@ -111,7 +111,7 @@ app.get('/api/transactions', async (req, res) => {
           CASE WHEN report_turnover_vat IS NOT NULL THEN true ELSE false END as is_eligible
         FROM fx_transactions 
         ORDER BY id DESC 
-        LIMIT 100
+        LIMIT 10000
       `);
       
       const mappedRows = result.rows.map(row => ({
