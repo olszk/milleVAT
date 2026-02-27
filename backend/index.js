@@ -196,6 +196,7 @@ app.get('/api/transactions', async (req, res) => {
           WHEN product_type = 'FxSwap' THEN to_char(leg2_date, 'YYYY-MM-DD') 
           ELSE to_char(leg1_date, 'YYYY-MM-DD') 
         END as date,
+        CASE WHEN ccode = ANY($1) THEN 'UE' ELSE 'POZA_UE' END as region,
         bo_dealno,
         fo_dealno,
         product_type,
@@ -245,10 +246,10 @@ app.get('/api/transactions', async (req, res) => {
         source_filename,
         import_date
       FROM fx_transactions 
-      ${whereClause}
+      ${whereClause.replace(/\$1/g, '$2')}
       ORDER BY ${finalSortField === 'leg1_date' ? 'date' : finalSortField} ${sortOrder} 
-      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
-    `, [...queryParams, limit, offset]);
+      LIMIT $${queryParams.length + 2} OFFSET $${queryParams.length + 3}
+    `, [EU_COUNTRIES, ...queryParams, limit, offset]);
     
     const mappedRows = result.rows.map(row => ({
       ...row,

@@ -231,7 +231,15 @@ const TransactionModal = ({ transaction, onClose }) => {
                  </div>
               </div>
               <h3 className="text-2xl font-black text-gray-900 leading-tight mt-2">{transaction.client}</h3>
-              <p className="text-sm text-gray-500 font-medium">Instrument: <span className="text-gray-900">{transaction.type}</span> • Kraj: <span className="text-gray-900">{transaction.ccode}</span></p>
+              <div className="flex items-center gap-3 mt-1">
+                <p className="text-sm text-gray-500 font-medium">Instrument: <span className="text-gray-900">{transaction.type}</span> • Kraj: <span className="text-gray-900">{transaction.ccode}</span></p>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-widest uppercase border
+                  ${transaction.region === 'UE' 
+                    ? 'bg-pink-100 text-[#BD0050] border-pink-200' 
+                    : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                  {transaction.region === 'UE' ? 'Podmiot z UE' : 'Podmiot spoza UE'}
+                </span>
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="p-3 hover:bg-gray-100 rounded-full transition-all group active:scale-95">
@@ -915,6 +923,9 @@ function App() {
                   <th onClick={() => handleSort('client_name')} className="px-6 py-4 cursor-pointer hover:text-millennium transition-colors">
                     Kontrahent {sortField === 'client_name' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
+                  <th className="px-6 py-4 text-center">
+                    Region
+                  </th>
                   <th onClick={() => handleSort('product_type')} className="px-6 py-4 cursor-pointer hover:text-millennium transition-colors">
                     Typ {sortField === 'product_type' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
@@ -927,7 +938,7 @@ function App() {
               <tbody className="divide-y divide-gray-50">
                 {!transactions || transactions.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-24 text-center">
+                    <td colSpan="7" className="py-24 text-center">
                       <div className="flex flex-col items-center gap-3 text-gray-400">
                         <Table size={48} strokeWidth={1} />
                         <p className="font-medium italic">Brak danych dopasowanych do filtrów</p>
@@ -946,6 +957,14 @@ function App() {
                         <td className="px-6 py-4 text-sm text-gray-600 font-medium">{t.date || 'N/A'}</td>
                         <td className="px-6 py-4 text-sm font-mono text-gray-400 group-hover:text-gray-900 transition-colors">{t.bo_dealno || 'N/A'}</td>
                         <td className="px-6 py-4 text-sm text-gray-900 font-bold line-clamp-1 max-w-[200px]">{t.client || 'N/A'}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase
+                            ${t.region === 'UE' 
+                              ? 'bg-pink-100 text-[#BD0050] border border-pink-200' 
+                              : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+                            {t.region === 'UE' ? 'UE' : 'POZA UE'}
+                          </span>
+                        </td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tight
                             ${t.product_type === 'FxSwap' ? 'bg-indigo-50 text-indigo-700' : 'bg-blue-50 text-blue-700'}`}>
